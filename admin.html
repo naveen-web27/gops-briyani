@@ -771,9 +771,45 @@ function setConnStatus(type, msg){
 }
 
 function apiGet(action){
+
   if(!SCRIPT_URL) return Promise.reject(new Error('No script URL'));
-  return fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now())
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+
+  // If running on localhost use fetch
+  if(location.hostname === "localhost" || location.hostname === "127.0.0.1"){
+    
+    return fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now())
+      .then(function(r){
+        if(!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      });
+
+  }
+
+  // Otherwise use JSONP (GitHub Pages)
+  return new Promise(function(resolve,reject){
+
+    const callbackName = "jsonp_callback_" + Date.now();
+
+    window[callbackName] = function(data){
+      resolve(data);
+      delete window[callbackName];
+      script.remove();
+    };
+
+    const script = document.createElement("script");
+
+    script.src =
+      SCRIPT_URL +
+      "?action=" + action +
+      "&callback=" + callbackName +
+      "&t=" + Date.now();
+
+    script.onerror = reject;
+
+    document.body.appendChild(script);
+
+  });
+
 }
 
 async function apiPost(payload){
