@@ -450,7 +450,7 @@ var STAFF_PIN = "1234";
 var SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv";
 
 // Paste your deployed Apps Script Web App URL here to enable Close Order
-var ORDERS_URL = "https://script.google.com/macros/s/AKfycbzwtO1-uTIoBCZoVm2aObvMfwmT11tSN32CCgOUymCJcFPurorBVsxxNuSaiHcFTrDVtA/exec";
+var ORDERS_URL = "https://script.google.com/macros/s/AKfycbxpx4QesHAeSTpHX1lhJRQOt390h2uQQFYhYbhXmNlqzcG3Q0nlCHDSoiyQYsiJCeiV/exec";
 
 /* ══════════════════════════════════════════
    PIN SECURITY — commented out for now.
@@ -534,6 +534,17 @@ function boot() {
   document.getElementById('app').classList.add('open');
   setDate();
   loadSheet();
+  // Fetch bill number from Orders sheet: last row count + 1
+  if (ORDERS_URL) {
+    fetch(ORDERS_URL + '?action=orders&t=' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var rows = (data && data.rows) ? data.rows : [];
+        billNo = rows.length + 1;
+        setDate();
+      })
+      .catch(function() { /* keep billNo = 1 */ });
+  }
 }
 
 function setDate() {
@@ -704,7 +715,7 @@ function updateCartBar() {
   if (count > 0) {
     badge.textContent = count; badge.classList.add('show');
     document.getElementById('mCartCount').textContent = count + ' item' + (count > 1 ? 's' : '');
-    document.getElementById('mCartTotal').textContent = '&#8377;' + total.toFixed(2);
+    document.getElementById('mCartTotal').innerHTML = '&#8377;' + total.toFixed(2);
     if (isMobile() && currentTab === 'products') mcBtn.classList.remove('hidden');
     else mcBtn.classList.add('hidden');
   } else {
@@ -739,18 +750,18 @@ function updateSummary() {
   var dtype = document.getElementById('discountType').value;
   var discAmt = dtype === 'pct' ? ((sub + gstAmt) * dv / 100) : Math.min(dv, sub + gstAmt);
   var total = Math.max(0, sub + gstAmt - discAmt);
-  document.getElementById('subVal').textContent = '&#8377;' + sub.toFixed(2);
+  document.getElementById('subVal').innerHTML  = '&#8377;' + sub.toFixed(2);
   document.getElementById('gstLbl').textContent = 'GST (' + gst + '%)';
-  document.getElementById('gstVal').textContent = '&#8377;' + gstAmt.toFixed(2);
+  document.getElementById('gstVal').innerHTML  = '&#8377;' + gstAmt.toFixed(2);
   var discRow = document.querySelector('.srow.sdiscount');
   if (discAmt > 0) {
     document.getElementById('discLbl').textContent = dtype === 'pct' ? 'Discount (' + dv + '%)' : 'Discount';
-    document.getElementById('discAmt').textContent = '-&#8377;' + discAmt.toFixed(2);
+    document.getElementById('discAmt').innerHTML = '-&#8377;' + discAmt.toFixed(2);
     discRow.style.display = 'flex';
   } else {
     discRow.style.display = 'none';
   }
-  document.getElementById('totalVal').textContent = '&#8377;' + total.toFixed(2);
+  document.getElementById('totalVal').innerHTML = '&#8377;' + total.toFixed(2);
 }
 
 /* ── TOAST ── */
@@ -772,34 +783,35 @@ function closeOrder() {
   var dtype = document.getElementById('discountType').value;
   var discAmt = dtype === 'pct' ? ((sub + gstAmt) * dv / 100) : Math.min(dv, sub + gstAmt);
   var total = Math.max(0, sub + gstAmt - discAmt);
-  var itemsSummary = cart.map(function(i) { return i.name + ' x' + i.qty + ' (Rs.' + (i.price * i.qty).toFixed(2) + ')'; }).join(' | ');
+  var itemsSummary = cart.map(function(i) { return i.name + ' x' + i.qty + ' (' + (i.price * i.qty).toFixed(2) + ')'; }).join(' | ');
   var payload = {
+    action: 'saveOrder',
     timestamp: new Date().toISOString(),
     billNo: document.getElementById('billNum').textContent,
     customer: document.getElementById('custInput').value.trim() || 'Walk-in',
     items: itemsSummary,
-    subtotal: 'Rs.' + sub.toFixed(2),
-    gst: 'GST ' + gst + '% = Rs.' + gstAmt.toFixed(2),
-    discount: discAmt > 0 ? 'Rs.' + discAmt.toFixed(2) : '--',
-    total: 'Rs.' + total.toFixed(2),
+    subtotal: sub.toFixed(2),
+    gst: 'GST ' + gst + '% = ' + gstAmt.toFixed(2),
+    discount: discAmt > 0 ? discAmt.toFixed(2) : '--',
+    total: total.toFixed(2),
     status: 'Closed'
   };
   if (!ORDERS_URL) {
-    showToast('Paste your Apps Script URL in ORDERS_URL to save orders!', true);
+    showToast('No ORDERS_URL set!', true);
     console.log('Order payload (not sent):', payload);
     return;
   }
   btn.classList.add('sending'); btn.textContent = 'Saving...';
   fetch(ORDERS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     .then(function() {
-      showToast('&#10003; Order saved to Google Sheet!');
+      showToast('\u2713 Order ' + payload.billNo + ' saved!');
       cart = []; billNo++; setDate();
       renderBill(); renderProducts(); updateCartBar();
       document.getElementById('custInput').value = '';
       document.getElementById('discountVal').value = '0';
       updateSummary();
     })
-    .catch(function() { showToast('Could not save. Check ORDERS_URL.', true); })
+    .catch(function() { showToast('Could not save. Check connection.', true); })
     .finally(function() { btn.classList.remove('sending'); btn.innerHTML = '&#10003; Close Order'; });
 }
 
@@ -807,7 +819,7 @@ function closeOrder() {
 function clearBill() {
   if (!cart.length) return;
   if (confirm('Clear all items?')) {
-    cart = []; billNo++; setDate();
+    cart = [];
     renderBill(); renderProducts(); updateCartBar();
   }
 }
@@ -816,7 +828,6 @@ function printBill() {
   if (!cart.length) { alert('Add items first!'); return; }
   document.getElementById('panelBill').classList.remove('hidden');
   syncShop(); window.print();
-  billNo++; setDate();
   if (isMobile() && currentTab !== 'bill') document.getElementById('panelBill').classList.add('hidden');
 }
 
