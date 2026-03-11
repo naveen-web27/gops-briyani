@@ -770,12 +770,10 @@ function setConnStatus(type, msg){
   el.textContent = msg;
 }
 
-async function apiGet(action){
-  if(!SCRIPT_URL) throw new Error('No script URL');
-  const url = SCRIPT_URL + '?action=' + action + '&t=' + Date.now();
-  const res  = await fetch(url);
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
+function apiGet(action){
+  if(!SCRIPT_URL) return Promise.reject(new Error('No script URL'));
+  return fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now())
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
 }
 
 async function apiPost(payload){

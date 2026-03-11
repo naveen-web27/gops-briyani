@@ -100,28 +100,37 @@ function getColIndex(sheet, header){
 ═══════════════════════════════════════════════ */
 function doGet(e){
   try {
-    const action = (e.parameter && e.parameter.action) || '';
-    const ss     = SpreadsheetApp.getActiveSpreadsheet();
+    const action   = (e.parameter && e.parameter.action)   || '';
+    const callback = (e.parameter && e.parameter.callback) || '';
+    const ss       = SpreadsheetApp.getActiveSpreadsheet();
+    let result;
 
     if(action === 'menu'){
       const sh   = getOrCreateSheet('cusine', MENU_HEADERS);
       const rows = sheetToJSON(sh, MENU_HEADERS);
-      return jsonResponse({ status:'ok', rows });
+      result = { status:'ok', rows };
     }
-
-    if(action === 'orders'){
+    else if(action === 'orders'){
       const sh   = getOrCreateSheet('Orders', ORDER_HEADERS);
       const rows = sheetToJSON(sh, ORDER_HEADERS);
-      return jsonResponse({ status:'ok', rows });
+      result = { status:'ok', rows };
     }
-
-    if(action === 'reservations'){
+    else if(action === 'reservations'){
       const sh   = getOrCreateSheet('Reservations', RES_HEADERS);
       const rows = sheetToJSON(sh, RES_HEADERS);
-      return jsonResponse({ status:'ok', rows });
+      result = { status:'ok', rows };
+    }
+    else {
+      result = { status:'ok', message:'Spice Garden API ready', actions:['menu','orders','reservations'] };
     }
 
-    return jsonResponse({ status:'ok', message:'Spice Garden API ready', actions:['menu','orders','reservations'] });
+    // JSONP support — required for GitHub Pages (avoids CORS)
+    if(callback){
+      return ContentService
+        .createTextOutput(callback + '(' + JSON.stringify(result) + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return jsonResponse(result);
 
   } catch(err){
     return jsonResponse({ status:'error', message: err.message });
