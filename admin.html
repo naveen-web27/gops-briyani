@@ -771,28 +771,25 @@ function setConnStatus(type, msg){
 }
 
 function apiGet(action){
-
   if(!SCRIPT_URL) return Promise.reject(new Error('No script URL'));
 
-  // If running on localhost use fetch
+  // localhost → use fetch
   if(location.hostname === "localhost" || location.hostname === "127.0.0.1"){
-    
     return fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now())
       .then(function(r){
         if(!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       });
-
   }
 
-  // Otherwise use JSONP (GitHub Pages)
+  // GitHub Pages → use JSONP
   return new Promise(function(resolve,reject){
 
-    const callbackName = "jsonp_callback_" + Date.now();
+    const cb = "jsonp_" + Date.now();
 
-    window[callbackName] = function(data){
+    window[cb] = function(data){
       resolve(data);
-      delete window[callbackName];
+      delete window[cb];
       script.remove();
     };
 
@@ -801,17 +798,14 @@ function apiGet(action){
     script.src =
       SCRIPT_URL +
       "?action=" + action +
-      "&callback=" + callbackName +
+      "&callback=" + cb +
       "&t=" + Date.now();
 
     script.onerror = reject;
 
     document.body.appendChild(script);
-
   });
-
 }
-
 async function apiPost(payload){
   if(!SCRIPT_URL) throw new Error('No script URL');
   // no-cors avoids CORS preflight — same approach as billing.html
