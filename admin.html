@@ -680,9 +680,21 @@ table tr:last-child td{border-bottom:none}
 ═══════════════════════════════════════════════ */
 const ADMIN_PIN = localStorage.getItem('admin_pin') || '1234';
 
-/* ── HARDCODED URLs — no manual paste needed ── */
-const HARDCODED_URL = 'https://script.google.com/macros/s/AKfycbzwtO1-uTIoBCZoVm2aObvMfwmT11tSN32CCgOUymCJcFPurorBVsxxNuSaiHcFTrDVtA/exec';
-let SCRIPT_URL = localStorage.getItem('admin_script_url') || HARDCODED_URL;
+/* ══════════════════════════════════════════════
+   URLs — same approach as billing.html
+   READ:  Published Google Sheet CSV (no CORS)
+   WRITE: Apps Script POST no-cors
+══════════════════════════════════════════════ */
+// Apps Script URL — for WRITE operations only (add/edit/delete dish, toggle available)
+const SCRIPT_URL = localStorage.getItem('admin_script_url') || 'https://script.google.com/macros/s/AKfycbzwtO1-uTIoBCZoVm2aObvMfwmT11tSN32CCgOUymCJcFPurorBVsxxNuSaiHcFTrDVtA/exec';
+
+// Published CSV URLs — for READ operations (no CORS, works on GitHub Pages)
+// To get these: Google Sheet → File → Share → Publish to web → select tab → CSV → Publish
+// Then copy the link for each tab
+const MENU_CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv';
+const ORDERS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?gid=553776590&single=true&output=csv';
+// ↑ Replace gid= with the actual gid of your Orders tab
+// To find gid: open the sheet tab → look at URL → ...#gid=XXXXXXX
 
 /* ═══ STATE ═══ */
 let allMenu   = [];  // raw rows from sheet
@@ -770,77 +782,69 @@ function setConnStatus(type, msg){
   el.textContent = msg;
 }
 
-function apiGet(action){
-  if(!SCRIPT_URL) return Promise.reject(new Error('No script URL'));
-
-  // localhost → use fetch
-  if(location.hostname === "localhost" || location.hostname === "127.0.0.1"){
-    return fetch(SCRIPT_URL + '?action=' + action + '&t=' + Date.now())
-      .then(function(r){
-        if(!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      });
-  }
-
-  // GitHub Pages → use JSONP
-  return new Promise(function(resolve,reject){
-
-    const cb = "jsonp_" + Date.now();
-
-    window[cb] = function(data){
-      resolve(data);
-      delete window[cb];
-      script.remove();
-    };
-
-    const script = document.createElement("script");
-
-    script.src =
-      SCRIPT_URL +
-      "?action=" + action +
-      "&callback=" + cb +
-      "&t=" + Date.now();
-
-    script.onerror = reject;
-
-    document.body.appendChild(script);
-  });
+/* ══ READ: fetch CSV (no CORS, works on GitHub Pages) ══ */
+function fetchCSV(url){
+  return fetch(url + '&t=' + Date.now())
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(parseCSVtoRows);
 }
-async function apiPost(payload){
-  if(!SCRIPT_URL) throw new Error('No script URL');
-  // no-cors avoids CORS preflight — same approach as billing.html
-  // We cannot read the response body with no-cors, so we just trust it and reload
-  await fetch(SCRIPT_URL, {
-    method:'POST',
-    mode:'no-cors',
-    headers:{'Content-Type':'text/plain'},
+
+function parseCSVtoRows(csv){
+  var lines = csv.replace(/\r/g,'').trim().split('\n').filter(Boolean);
+  if(lines.length < 2) return [];
+  var headers = csvSplit(lines[0]);
+  return lines.slice(1).map(function(line, i){
+    var cols = csvSplit(line);
+    var obj = { _row: i + 2 };
+    headers.forEach(function(h, j){ obj[h.trim()] = (cols[j]||'').trim(); });
+    return obj;
+  }).filter(function(r){ return Object.values(r).some(function(v){ return typeof v === 'string' && v.length > 0; }); });
+}
+
+function csvSplit(line){
+  var result = [], cur = '', inQ = false;
+  for(var i = 0; i < line.length; i++){
+    var c = line[i];
+    if(c === '"'){ inQ = !inQ; }
+    else if(c === ',' && !inQ){ result.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  result.push(cur);
+  return result;
+}
+
+/* ══ WRITE: Apps Script POST no-cors (same as billing.html) ══ */
+function apiPost(payload){
+  return fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {'Content-Type':'text/plain'},
     body: JSON.stringify(payload)
   });
-  // no-cors returns opaque response — treat as success, data reload will confirm
 }
 
-async function refreshAll(){
+function refreshAll(){
   setConnStatus('loading','Loading…');
-  try {
-    await Promise.all([loadMenu(), loadOrders()]);
-    setConnStatus('ok','✓ Connected');
-  } catch(e){
-    console.error(e);
-    setConnStatus('err','Connection error');
-    toast('Could not reach Google Sheet. Check your Script URL.','err');
-  }
+  Promise.all([loadMenu(), loadOrders()])
+    .then(function(){ setConnStatus('ok','✓ Connected'); })
+    .catch(function(e){
+      console.error(e);
+      setConnStatus('err','Connection error');
+      toast('Could not load sheet. Check CSV URLs are published.','err');
+    });
 }
 
 /* ═══════════════════════════════════════════════
    MENU LOAD & RENDER
 ═══════════════════════════════════════════════ */
-async function loadMenu(){
-  const data = await apiGet('menu');
-  allMenu = data.rows || [];
-  buildMenuCatFilter();
-  updateCatSuggestions();
-  renderMenuTable();
-  updateDashMenuStats();
+function loadMenu(){
+  return fetchCSV(MENU_CSV_URL).then(function(rows){
+    allMenu = rows;
+    buildMenuCatFilter();
+    updateCatSuggestions();
+    renderMenuTable();
+    updateDashMenuStats();
+  });
 }
 
 function buildMenuCatFilter(){
@@ -933,7 +937,7 @@ function clearDishModal(){
 }
 function closeModal(){ document.getElementById('dish-modal').classList.remove('open'); }
 
-async function saveDish(){
+function saveDish(){
   const name = document.getElementById('f-name').value.trim();
   const cat  = document.getElementById('f-category').value.trim();
   const price= document.getElementById('f-price').value.trim();
@@ -942,8 +946,7 @@ async function saveDish(){
   const payload = {
     action:      rowIdx ? 'editDish' : 'addDish',
     rowIndex:    rowIdx ? +rowIdx : undefined,
-    Category:    cat,
-    Name:        name,
+    Category:    cat, Name: name,
     Description: document.getElementById('f-desc').value.trim(),
     Price:       price,
     Type:        document.getElementById('f-type').value,
@@ -953,35 +956,29 @@ async function saveDish(){
   };
   const btn = document.getElementById('modal-save-btn');
   btn.disabled=true; btn.textContent='Saving…';
-  try {
-    await apiPost(payload);
+  apiPost(payload).then(function(){
     closeModal();
     toast(rowIdx ? 'Saved! Refreshing…' : 'Dish added! Refreshing…', 'ok');
-    setTimeout(async ()=>{ await loadMenu(); }, 2200);
-  } catch(e){
+    setTimeout(function(){ loadMenu(); }, 2500);
+  }).catch(function(e){
     toast('Error: ' + e.message, 'err');
-  } finally { btn.disabled=false; btn.textContent=rowIdx?'💾 Save Changes':'+ Add Dish'; }
+  }).finally(function(){ btn.disabled=false; btn.textContent=rowIdx?'💾 Save Changes':'+ Add Dish'; });
 }
 
 /* ── TOGGLE AVAILABILITY ── */
-async function toggleAvail(rowIdx, current){
+function toggleAvail(rowIdx, current){
   const newVal = current==='Yes' ? 'No' : 'Yes';
-  // Optimistic update — flip in memory immediately so UI responds
   const item = allMenu.find(m=>m._row===rowIdx);
   if(item) item.Available = newVal;
-  renderMenuTable();
-  updateDashMenuStats();
+  renderMenuTable(); updateDashMenuStats();
   toast(newVal==='Yes' ? '✅ Enabled — saving…' : '🚫 Sold Out — saving…', 'info');
-  try {
-    await apiPost({ action:'editField', rowIndex:rowIdx, field:'Available', value:newVal });
-    // Reload from sheet after 2s to confirm change was saved
-    setTimeout(async ()=>{ await loadMenu(); toast(newVal==='Yes' ? 'Dish enabled ✅' : 'Marked sold out 🚫','ok'); }, 2000);
-  } catch(e){
-    // Revert optimistic update on error
+  apiPost({ action:'editField', rowIndex:rowIdx, field:'Available', value:newVal }).then(function(){
+    setTimeout(function(){ loadMenu().then(function(){ toast(newVal==='Yes' ? 'Dish enabled ✅' : 'Marked sold out 🚫','ok'); }); }, 2500);
+  }).catch(function(e){
     if(item) item.Available = current;
     renderMenuTable();
     toast('Error: '+e.message,'err');
-  }
+  });
 }
 
 /* ── DELETE ── */
@@ -991,19 +988,17 @@ function openDelete(rowIdx, name){
   document.getElementById('del-modal').classList.add('open');
 }
 function closeDelModal(){ document.getElementById('del-modal').classList.remove('open'); pendingDeleteRow=-1; }
-async function confirmDelete(){
+function confirmDelete(){
   if(pendingDeleteRow<0) return;
   const row = pendingDeleteRow;
   closeDelModal();
-  // Optimistic remove from memory
   allMenu = allMenu.filter(m=>m._row!==row);
   renderMenuTable();
   toast('Deleting…','info');
-  try {
-    await apiPost({ action:'deleteDish', rowIndex:row });
+  apiPost({ action:'deleteDish', rowIndex:row }).then(function(){
     toast('Dish deleted ✓','ok');
-    setTimeout(async ()=>{ await loadMenu(); }, 2200);
-  } catch(e){ toast('Error: '+e.message,'err'); await loadMenu(); }
+    setTimeout(function(){ loadMenu(); }, 2500);
+  }).catch(function(e){ toast('Error: '+e.message,'err'); loadMenu(); });
 }
 
 /* ── EXPORT MENU CSV ── */
@@ -1040,12 +1035,13 @@ function toDateStr(ts){
   return '';
 }
 
-async function loadOrders(){
-  const data = await apiGet('orders');
-  allOrders = data.rows || [];
-  renderOrdersTable();
-  renderDashOrders();
-  updateDashOrderStats();
+function loadOrders(){
+  return fetchCSV(ORDERS_CSV_URL).then(function(rows){
+    allOrders = rows;
+    renderOrdersTable();
+    renderDashOrders();
+    updateDashOrderStats();
+  });
 }
 
 function initDates(){
