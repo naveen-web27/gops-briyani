@@ -686,7 +686,7 @@ const ADMIN_PIN = localStorage.getItem('admin_pin') || '1234';
    WRITE: Apps Script POST no-cors
 ══════════════════════════════════════════════ */
 // Apps Script URL — for WRITE operations only (add/edit/delete dish, toggle available)
-const SCRIPT_URL = localStorage.getItem('admin_script_url') || 'https://script.google.com/macros/s/AKfycbzwtO1-uTIoBCZoVm2aObvMfwmT11tSN32CCgOUymCJcFPurorBVsxxNuSaiHcFTrDVtA/exec';
+const SCRIPT_URL = localStorage.getItem('admin_script_url') || 'https://script.google.com/macros/s/AKfycbyYP49LWQ5-sk5pHEaPIZwphe9fA2bfqeJdo4uJcLedzZ-m14pxcnxeB6inpZuBbxRxFg/exec';
 
 // Published CSV URLs — for READ operations (no CORS, works on GitHub Pages)
 // To get these: Google Sheet → File → Share → Publish to web → select tab → CSV → Publish
@@ -1281,9 +1281,32 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function fmtDate(ts){
   if(!ts) return '—';
   try {
-    const d = new Date(ts);
-    return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'}) + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-  } catch(e){ return ts.slice(0,16); }
+    var s = String(ts).trim();
+    var d;
+
+    // Format from Apps Script: "21/3/2026, 10:30:00 am" or "21/03/2026, 10:30:00"
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
+    if(m){
+      var day=parseInt(m[1]), mon=parseInt(m[2])-1, yr=parseInt(m[3]);
+      var hr=parseInt(m[4]), min=parseInt(m[5]);
+      var ampm = m[7] ? m[7].toLowerCase() : '';
+      if(ampm==='pm' && hr!==12) hr+=12;
+      if(ampm==='am' && hr===12) hr=0;
+      d = new Date(yr, mon, day, hr, min);
+    }
+    // ISO format: "2026-03-21T10:30:00"
+    else if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+      d = new Date(s);
+    }
+    // Last resort
+    else {
+      d = new Date(s);
+    }
+
+    if(isNaN(d)) return s.slice(0,16);
+    return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'})
+      + ' ' + d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+  } catch(e){ return String(ts).slice(0,16); }
 }
 
 function downloadCSV(rows, filename){

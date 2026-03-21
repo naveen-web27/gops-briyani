@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Billing — Spice Garden</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --red:#8b1a1a;--red2:#6e1212;
@@ -53,7 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 /* DESKTOP layout */
 @media(min-width:768px){
-  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:1fr 380px;}
+  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:50fr 50fr;}
   .panel-products{display:flex!important;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
   .panel-bill{display:flex!important;flex-direction:column;overflow:hidden;}
   .mobile-tabs,.mobile-cart-bar{display:none!important;}
@@ -199,10 +200,12 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .bill-hdr .shop-name{font-family:'Playfair Display',serif;font-size:.95rem;font-weight:700;}
 .bill-hdr .meta-row{display:flex;justify-content:space-between;margin-top:2px;}
 .bill-hdr .bm{font-size:.65rem;color:rgba(255,255,255,.55);}
-.cust-row{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.03);flex-shrink:0;}
-.cust-row label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.28);white-space:nowrap;}
-.cust-row input{flex:1;background:transparent;border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;}
-.cust-row input::placeholder{color:rgba(255,255,255,.16);}
+.cust-row{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.05);flex-shrink:0;flex-wrap:wrap;}
+.cust-row label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gold2);white-space:nowrap;}
+.cust-row input{flex:1;min-width:90px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);color:#fff;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;border-radius:6px;padding:6px 10px;transition:border-color .15s;}
+.cust-row input:focus{border-color:rgba(201,146,42,.6);background:rgba(255,255,255,.14);}
+.cust-row input::placeholder{color:rgba(255,255,255,.35);}
+.phone-prefix{font-size:.78rem;font-weight:700;color:var(--gold);white-space:nowrap;flex-shrink:0;}
 
 .line-items{flex:1;overflow-y:auto;padding:8px 16px;-webkit-overflow-scrolling:touch;}
 .bli{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:6px;padding:9px 0;border-bottom:1px dashed rgba(255,255,255,.06);animation:sli .18s ease;}
@@ -221,17 +224,36 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .summary{border-top:1px solid rgba(255,255,255,.08);padding:10px 16px;background:rgba(0,0,0,.25);flex-shrink:0;}
 .sum-ctrl-row{display:flex;gap:10px;margin-bottom:8px;align-items:center;}
 .sum-ctrl{display:flex;align-items:center;gap:6px;flex:1;}
-.sum-ctrl label{font-size:.7rem;color:var(--muted);white-space:nowrap;}
-.sum-ctrl input{width:52px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;padding:4px 8px;border-radius:5px;font-size:.82rem;text-align:center;outline:none;}
-.sum-ctrl select{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;padding:4px 6px;border-radius:5px;font-size:.78rem;outline:none;cursor:pointer;}
-.sum-ctrl select option{background:var(--dark2);}
-.srow{display:flex;justify-content:space-between;padding:2px 0;font-size:.82rem;color:rgba(255,255,255,.38);}
+.sum-ctrl label{font-size:.7rem;color:#d4b896;white-space:nowrap;font-weight:600;}
+.sum-ctrl input{width:52px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;padding:6px 8px;border-radius:5px;font-size:.82rem;text-align:center;outline:none;font-weight:600;}
+.sum-ctrl input:focus{border-color:var(--gold);background:rgba(255,255,255,.18);}
+.sum-ctrl select{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;padding:6px 6px;border-radius:5px;font-size:.78rem;outline:none;cursor:pointer;font-weight:600;}
+.sum-ctrl select option{background:var(--dark2);color:#fff;}
+.srow{display:flex;justify-content:space-between;padding:3px 0;font-size:.83rem;color:#d4c4b0;font-weight:500;}
+.srow span:first-child{color:#c8b8a2;}
+.srow span:last-child{color:#fff;font-weight:600;}
 .srow.sdiscount span:last-child{color:#f87171;}
 .srow.stotal{font-family:'Playfair Display',serif;font-weight:700;font-size:1.1rem;color:#fff;margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.1);}
 .srow.stotal span:last-child{color:var(--gold);}
 
 .actions{padding:10px 16px;display:flex;gap:8px;border-top:1px solid rgba(255,255,255,.07);flex-shrink:0;}
-.btn-clear{flex:1;padding:13px;border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:8px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.75rem;cursor:pointer;color:rgba(255,255,255,.35);touch-action:manipulation;}
+.btn-wa-bill{
+  flex:2;padding:13px 6px;border:none;border-radius:8px;
+  background:#25D366;color:#fff;
+  font-family:'DM Sans',sans-serif;font-weight:700;font-size:.78rem;
+  cursor:pointer;touch-action:manipulation;transition:.13s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.btn-wa-bill:active{background:#128C4E;}
+.btn-wa-bill:disabled{opacity:.5;pointer-events:none;}
+.btn-dl-bill{
+  flex:1.5;padding:13px 6px;border:1px solid rgba(255,255,255,.2);border-radius:8px;
+  background:rgba(255,255,255,.08);color:#fff;
+  font-family:'DM Sans',sans-serif;font-weight:600;font-size:.75rem;
+  cursor:pointer;touch-action:manipulation;transition:.13s;
+}
+.btn-dl-bill:active{background:rgba(201,146,42,.25);border-color:var(--gold);}
+.btn-clear{flex:1;padding:13px;border:1px solid rgba(255,255,255,.12);background:transparent;border-radius:8px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.75rem;cursor:pointer;color:rgba(255,255,255,.45);touch-action:manipulation;}
 .btn-clear:active{border-color:var(--red);color:#ef9a9a;}
 .btn-print{flex:1.5;padding:13px;background:var(--gold);border:none;border-radius:8px;color:#fff;font-family:'Playfair Display',serif;font-weight:700;font-size:.88rem;cursor:pointer;letter-spacing:.02em;touch-action:manipulation;}
 .btn-print:active{background:#a67520;}
@@ -305,7 +327,8 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 @media print{
   #pin-screen{display:none!important;}
-  .topbar,.panel-products,.actions,.qctrl button,.bli-del,.sum-ctrl-row,.cat-bar,.search-row,.mobile-tabs,.mobile-cart-bar,.custom-form{display:none!important;}
+  .topbar,.panel-products,.actions,.qctrl button,.bli-del,.sum-ctrl-row,.cat-bar,.search-row,.mobile-tabs,.mobile-cart-bar,.custom-form,.btn-wa-bill,.btn-dl-bill,.btn-clear,.btn-print,.btn-close-order{display:none!important;}
+  .cust-row input{color:#333!important;background:#f5f5f5!important;border:1px solid #ddd!important;}
   body,html{overflow:visible;height:auto;}
   #app{display:block!important;height:auto!important;}
   .main-area{display:block!important;}
@@ -402,8 +425,32 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         </div>
       </div>
       <div class="cust-row">
+        <label>Type</label>
+        <select id="custType" onchange="updateSummary()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+          color:#fff;padding:6px 8px;border-radius:6px;font-size:.82rem;outline:none;cursor:pointer;
+          font-family:'DM Sans',sans-serif;font-weight:600;">
+          <option value="Walk-in"  style="background:#180900">🚶 Walk-in</option>
+          <option value="Online"   style="background:#180900">🌐 Online</option>
+        </select>
         <label>Customer</label>
-        <input type="text" id="custInput" placeholder="Customer name..."/>
+        <input type="text" id="custInput" placeholder="Customer name..." style="max-width:130px;"/>
+        <label>📱 +91</label>
+        <input type="tel" id="custPhone" maxlength="10" placeholder="WhatsApp no."
+          style="max-width:110px;" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        <label>💳</label>
+        <select id="payMode" onchange="updateSummary()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+          color:#fff;padding:6px 8px;border-radius:6px;font-size:.82rem;outline:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
+          <option value="UPI"       style="background:#180900">💸 UPI</option>
+          <option value="Cash"      style="background:#180900">💵 Cash</option>
+          <option value="Google Pay" style="background:#180900">G GPay</option>
+          <option value="PhonePe"   style="background:#180900">P PhonePe</option>
+          <option value="Card"      style="background:#180900">💳 Card</option>
+          <option value="Other"     style="background:#180900">🏦 Other</option>
+        </select>
+      </div>
+      <div class="cust-row" style="border-bottom:1px solid rgba(255,255,255,.08);">
+        <label>📍 Address</label>
+        <input type="text" id="custAddress" placeholder="Delivery address (optional)" style="flex:1;"/>
       </div>
       <div class="line-items" id="lineItems">
         <div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Go to Menu tab and tap dishes to add</p></div>
@@ -412,7 +459,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         <div class="sum-ctrl-row">
           <div class="sum-ctrl">
             <label>GST %</label>
-            <input type="number" id="gstRate" value="5" min="0" max="100" oninput="updateSummary()"/>
+            <input type="number" id="gstRate" value="0" min="0" max="100" oninput="updateSummary()"/>
           </div>
           <div class="sum-ctrl">
             <label>Discount</label>
@@ -426,12 +473,18 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         <div class="srow"><span>Subtotal</span><span id="subVal">&#8377;0.00</span></div>
         <div class="srow"><span id="gstLbl">GST (5%)</span><span id="gstVal">&#8377;0.00</span></div>
         <div class="srow sdiscount"><span id="discLbl">Discount</span><span id="discAmt">-&#8377;0.00</span></div>
+        <div class="srow" id="payModeRow"><span>Payment</span><span id="payModeDisplay" style="color:var(--gold2);">💸 UPI</span></div>
         <div class="srow stotal"><span>TOTAL</span><span id="totalVal">&#8377;0.00</span></div>
       </div>
       <div class="actions">
-        <button class="btn-clear" onclick="clearBill()">&#128465; Clear</button>
-        <button class="btn-print" onclick="printBill()">&#128424; Print</button>
-        <button class="btn-close-order" id="closeOrderBtn" onclick="closeOrder()">&#10003; Close Order</button>
+        <button class="btn-clear" onclick="clearBill()">&#128465;</button>
+        <button class="btn-print" onclick="printBill()" title="Print Bill">&#128424; Print</button>
+        <button class="btn-dl-bill" onclick="downloadBillImg()" title="Download Bill Image">📥 Image</button>
+        <button class="btn-wa-bill" id="waBillBtn" onclick="sendWaBill()">
+          <svg width="15" height="15" fill="#fff" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.549 4.126 1.51 5.868L0 24l6.29-1.49A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.032-1.384l-.36-.214-3.733.883.899-3.647-.234-.375A9.818 9.818 0 1112 21.818z"/></svg>
+          <span id="waBtnTxt">WhatsApp</span>
+        </button>
+        <button class="btn-close-order" id="closeOrderBtn" onclick="closeOrder()">&#10003; Close</button>
       </div>
     </div>
   </div>
@@ -450,7 +503,7 @@ var STAFF_PIN = "1234";
 var SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv";
 
 // Paste your deployed Apps Script Web App URL here to enable Close Order
-var ORDERS_URL = "https://script.google.com/macros/s/AKfycbxpx4QesHAeSTpHX1lhJRQOt390h2uQQFYhYbhXmNlqzcG3Q0nlCHDSoiyQYsiJCeiV/exec";
+var ORDERS_URL = "https://script.google.com/macros/s/AKfycbyYP49LWQ5-sk5pHEaPIZwphe9fA2bfqeJdo4uJcLedzZ-m14pxcnxeB6inpZuBbxRxFg/exec";
 
 /* ══════════════════════════════════════════
    PIN SECURITY — commented out for now.
@@ -762,6 +815,8 @@ function updateSummary() {
     discRow.style.display = 'none';
   }
   document.getElementById('totalVal').innerHTML = '&#8377;' + total.toFixed(2);
+  var pm = document.getElementById('payMode');
+  if (pm) document.getElementById('payModeDisplay').textContent = pm.options[pm.selectedIndex].text;
 }
 
 /* ── TOAST ── */
@@ -785,16 +840,19 @@ function closeOrder() {
   var total = Math.max(0, sub + gstAmt - discAmt);
   var itemsSummary = cart.map(function(i) { return i.name + ' x' + i.qty + ' (' + (i.price * i.qty).toFixed(2) + ')'; }).join(' | ');
   var payload = {
-    action: 'saveOrder',
-    timestamp: new Date().toISOString(),
-    billNo: document.getElementById('billNum').textContent,
-    customer: document.getElementById('custInput').value.trim() || 'Walk-in',
-    items: itemsSummary,
-    subtotal: sub.toFixed(2),
-    gst: 'GST ' + gst + '% = ' + gstAmt.toFixed(2),
-    discount: discAmt > 0 ? discAmt.toFixed(2) : '--',
-    total: total.toFixed(2),
-    status: 'Closed'
+    action:       'saveOrder',
+    billNo:       document.getElementById('billNum').textContent,
+    customer:     document.getElementById('custInput').value.trim() || 'Walk-in',
+    items:        itemsSummary,
+    subtotal:     sub.toFixed(2),
+    gst:          gst > 0 ? 'GST ' + gst + '% = ' + gstAmt.toFixed(2) : '--',
+    discount:     discAmt > 0 ? discAmt.toFixed(2) : '--',
+    total:        total.toFixed(2),
+    status:       'Closed',
+    customerType: (function(){ var ct=document.getElementById('custType'); return ct ? ct.value : 'Walk-in'; })(),
+    phone:        document.getElementById('custPhone') ? (document.getElementById('custPhone').value.trim() || '--') : '--',
+    address:      document.getElementById('custAddress') ? (document.getElementById('custAddress').value.trim() || '--') : '--',
+    payMode:      (function(){ var pm=document.getElementById('payMode'); return pm ? pm.value : 'UPI'; })()
   };
   if (!ORDERS_URL) {
     showToast('No ORDERS_URL set!', true);
@@ -807,8 +865,13 @@ function closeOrder() {
       showToast('\u2713 Order ' + payload.billNo + ' saved!');
       cart = []; billNo++; setDate();
       renderBill(); renderProducts(); updateCartBar();
-      document.getElementById('custInput').value = '';
+      document.getElementById('custInput').value   = '';
+      document.getElementById('custPhone').value   = '';
+      document.getElementById('custAddress').value = '';
+      document.getElementById('custType').selectedIndex  = 0;
+      document.getElementById('payMode').selectedIndex   = 0;
       document.getElementById('discountVal').value = '0';
+      updateSummary();
       updateSummary();
     })
     .catch(function() { showToast('Could not save. Check connection.', true); })
@@ -829,6 +892,115 @@ function printBill() {
   document.getElementById('panelBill').classList.remove('hidden');
   syncShop(); window.print();
   if (isMobile() && currentTab !== 'bill') document.getElementById('panelBill').classList.add('hidden');
+}
+
+/* ── BUILD BILL TEXT ── */
+function buildBillText() {
+  var shop     = document.getElementById('billShop').textContent;
+  var billNum  = document.getElementById('billNum').textContent;
+  var billDate = document.getElementById('billDate').textContent;
+  var cust     = document.getElementById('custInput').value.trim() || 'Walk-in';
+  var phone    = document.getElementById('custPhone').value.trim();
+  var address  = document.getElementById('custAddress').value.trim();
+  var ct       = document.getElementById('custType');
+  var custType = ct ? ct.value : 'Walk-in';
+  var pm       = document.getElementById('payMode');
+  var payMode  = pm ? pm.options[pm.selectedIndex].text : 'UPI';
+  var sub      = cart.reduce(function(s,i){return s+i.price*i.qty;},0);
+  var gst      = parseFloat(document.getElementById('gstRate').value)||0;
+  var gstAmt   = sub*gst/100;
+  var dv       = parseFloat(document.getElementById('discountVal').value)||0;
+  var dtype    = document.getElementById('discountType').value;
+  var discAmt  = dtype==='pct'?((sub+gstAmt)*dv/100):Math.min(dv,sub+gstAmt);
+  var total    = Math.max(0,sub+gstAmt-discAmt);
+
+  var msg = '🍽️ *' + shop + '*\n';
+  msg += '🧾 *' + billNum + '*  |  📅 ' + billDate + '\n';
+  msg += (custType === 'Online' ? '🌐 Online Order' : '🚶 Walk-in') + '\n';
+  msg += '👤 ' + cust;
+  if (phone) msg += '  |  📱 +91 ' + phone;
+  if (address) msg += '\n📍 ' + address;
+  msg += '\n💳 Payment: *' + payMode + '*\n';
+  msg += '\n━━━━━━━━━━━━━━━\n';
+  cart.forEach(function(it){
+    msg += '• ' + it.name + '\n  ' + it.qty + ' × ₹' + it.price.toFixed(2) + ' = *₹' + (it.price*it.qty).toFixed(2) + '*\n';
+  });
+  msg += '━━━━━━━━━━━━━━━\n';
+  msg += 'Subtotal: ₹' + sub.toFixed(2) + '\n';
+  if (gstAmt>0) msg += 'GST (' + gst + '%): ₹' + gstAmt.toFixed(2) + '\n';
+  if (discAmt>0) msg += '🎁 Discount: − ₹' + discAmt.toFixed(2) + '\n';
+  msg += '\n*💰 TOTAL: ₹' + total.toFixed(2) + '*\n';
+  msg += '\n🙏 Thank you, ' + cust + '!\n';
+  msg += '_(Bill image attached separately)_';
+  return msg;
+}
+
+/* ── CAPTURE BILL AS IMAGE ── */
+function captureBill(filename) {
+  return new Promise(function(resolve, reject) {
+    var panel = document.getElementById('panelBill');
+    // show panel temporarily if hidden (mobile)
+    var wasHidden = panel.classList.contains('hidden');
+    if (wasHidden) panel.classList.remove('hidden');
+    html2canvas(panel, {
+      backgroundColor: '#ffffff',
+      scale: 2.5,
+      useCORS: true,
+      logging: false,
+      ignoreElements: function(el){ return el.classList && el.classList.contains('actions'); }
+    }).then(function(canvas){
+      if (wasHidden) panel.classList.add('hidden');
+      canvas.toBlob(function(blob){
+        var url  = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url; link.download = filename;
+        document.body.appendChild(link); link.click();
+        document.body.removeChild(link);
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+        resolve();
+      }, 'image/png');
+    }).catch(function(e){ if(wasHidden) panel.classList.add('hidden'); reject(e); });
+  });
+}
+
+/* ── DOWNLOAD IMAGE ONLY ── */
+function downloadBillImg() {
+  if (!cart.length) { showToast('Add items first!', true); return; }
+  var num = document.getElementById('billNum').textContent.replace('Bill #','').trim();
+  showToast('⏳ Generating image...');
+  captureBill('Bill_' + num + '.png')
+    .then(function(){ showToast('✅ Bill image downloaded!'); })
+    .catch(function(){ showToast('❌ Could not generate image', true); });
+}
+
+/* ── SEND WHATSAPP BILL + AUTO DOWNLOAD IMAGE ── */
+function sendWaBill() {
+  if (!cart.length) { showToast('Add items first!', true); return; }
+  var phone = document.getElementById('custPhone').value.trim();
+  var num   = document.getElementById('billNum').textContent.replace('Bill #','').trim();
+  var msg   = buildBillText();
+  var target = phone && phone.length === 10
+    ? 'https://wa.me/91' + phone + '?text=' + encodeURIComponent(msg)
+    : 'https://wa.me/?text=' + encodeURIComponent(msg);
+
+  var btn = document.getElementById('waBillBtn');
+  var txt = document.getElementById('waBtnTxt');
+  btn.disabled = true; txt.textContent = '⏳ Saving...';
+
+  captureBill('Bill_' + num + '.png')
+    .then(function(){
+      txt.textContent = '📲 Opening...';
+      setTimeout(function(){
+        window.open(target, '_blank');
+        btn.disabled = false; txt.textContent = 'WhatsApp';
+        showToast('📥 Image saved · WhatsApp opened!');
+      }, 700);
+    })
+    .catch(function(){
+      window.open(target, '_blank');
+      btn.disabled = false; txt.textContent = 'WhatsApp';
+      showToast('⚠️ Image failed · Text bill sent');
+    });
 }
 
 /* ── BOOT (no PIN mode) ── */
