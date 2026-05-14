@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Speed Math Duel ⚔️</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head><body class="game-bg">
+<div class="game-wrap">
+  <div class="top-bar">
+    <a href="../index.html" class="back">← Hub</a>
+    <h1 class="game-title">⚔️ Speed Math Duel</h1>
+    <a href="leaderboard.html" class="back">🏆 Board</a>
+  </div>
+
+  <div class="duel">
+    <div class="player p1" id="pBox1">
+      <input class="name-edit" id="n1" value="Player 1" maxlength="20">
+      <div class="score" id="s1">0</div>
+    </div>
+    <div class="player p2" id="pBox2">
+      <input class="name-edit" id="n2" value="Player 2" maxlength="20">
+      <div class="score" id="s2">0</div>
+    </div>
+  </div>
+
+  <div class="qbox">
+    <div class="question" id="q">Press Start</div>
+    <div class="info">First correct answer wins · Best of <span id="rounds">10</span> · Round <b id="round">0</b></div>
+  </div>
+
+  <!-- 🪢 Tug of War -->
+  <div class="tug">
+    <div class="tug-center-line"></div>
+    <div class="tug-rope"></div>
+    <div class="tug-team-l" id="tugL"><span>💪</span><span>🧒</span><span>🧒</span></div>
+    <div class="tug-team-r" id="tugR"><span>🧒</span><span>🧒</span><span>💪</span></div>
+    <div class="tug-flag" id="tugFlag">🚩</div>
+    <div class="tug-label-l" id="tugLabelL">Player 1</div>
+    <div class="tug-label-r" id="tugLabelR">Player 2</div>
+    <div class="tug-ground"></div>
+  </div>
+
+  <div class="duel-pads">
+    <div class="numpad" id="pad1"></div>
+    <div class="numpad" id="pad2"></div>
+  </div>
+
+  <div class="controls" style="margin-top:20px">
+    <button class="btn btn-primary" id="startBtn" onclick="start()">▶ Start Match</button>
+    <button class="btn btn-secondary" onclick="resetGame()">↺ Reset</button>
+    <select class="btn btn-secondary" id="diff">
+      <option value="easy">Easy (+ −)</option>
+      <option value="medium" selected>Medium (+ − ×)</option>
+      <option value="hard">Hard (+ − × ÷)</option>
+    </select>
+    <select class="btn btn-secondary" id="rd">
+      <option value="5">Best of 5</option>
+      <option value="10" selected>Best of 10</option>
+      <option value="20">Best of 20</option>
+    </select>
+  </div>
+</div>
+
+<div id="winner" class="overlay hidden">
+  <div class="overlay-card">
+    <h1>🏆 Winner!</h1>
+    <div class="big" id="winText">Player 1</div>
+    <p id="finalScore"></p>
+    <button class="btn btn-primary" onclick="resetGame()">Play Again</button>
+    <a href="leaderboard.html" class="btn btn-secondary" style="text-decoration:none;display:inline-block">View Board</a>
+  </div>
+</div>
+
+<script src="../assets/game.js"></script>
+<script>
+let s1=0,s2=0,current=null,playing=false,totalRounds=10,round=0;
+const $=id=>document.getElementById(id);
+
+const pad1 = buildNumpad($('pad1'), v=>handleAnswer(1,v), {accent:'#ff6b6b', label:'P1 ✓'});
+const pad2 = buildNumpad($('pad2'), v=>handleAnswer(2,v), {accent:'#4ecdc4', label:'P2 ✓'});
+
+function start(){
+  s1=0;s2=0;round=0;
+  totalRounds = parseInt($('rd').value);
+  $('rounds').textContent = totalRounds;
+  $('s1').textContent=0; $('s2').textContent=0;
+  $('startBtn').textContent='⏸ Playing...';
+  playing=true; next();
+}
+function next(){
+  if(round>=totalRounds){ end(); return; }
+  round++; $('round').textContent=round;
+  current = Q[$('diff').value]();
+  $('q').textContent = current.text + ' = ?';
+  pad1.clear(); pad2.clear();
+}
+function handleAnswer(who, v){
+  if(!playing||!current) return;
+  if(v === current.ans){
+    if(who===1){ s1++; $('s1').textContent=s1; }
+    else { s2++; $('s2').textContent=s2; }
+    ok(); flash(who);
+    updateTug();
+    setTimeout(next, 700);
+  } else { bad(); }
+}
+function updateTug(){
+  // Flag moves: 50% center, P1 lead pulls LEFT (lower %), P2 lead pulls RIGHT
+  const diff = s1 - s2;
+  const pct = Math.max(15, Math.min(85, 50 - diff*6));
+  $('tugFlag').style.left = pct + '%';
+  $('tugLabelL').textContent = ($('n1').value || 'Player 1') + ' · ' + s1;
+  $('tugLabelR').textContent = ($('n2').value || 'Player 2') + ' · ' + s2;
+}
+function flash(who){
+  const box = $('pBox'+who);
+  box.classList.add('active');
+  setTimeout(()=>box.classList.remove('active'), 500);
+}
+function end(){
+  playing=false; win();
+  $('startBtn').textContent='▶ Start Match';
+  const n1 = $('n1').value || 'Player 1';
+  const n2 = $('n2').value || 'Player 2';
+  const winner = s1>s2 ? n1 : s2>s1 ? n2 : 'Draw';
+  $('winText').textContent = (s1===s2?'🤝 ':'🏆 ') + winner;
+  $('finalScore').textContent = `${n1}: ${s1}  vs  ${n2}: ${s2}`;
+  $('winner').classList.remove('hidden');
+  // Log BOTH players to leaderboard with result
+  const result1 = s1>s2?'🏆 Win':s2>s1?'❌ Loss':'🤝 Draw';
+  const result2 = s2>s1?'🏆 Win':s1>s2?'❌ Loss':'🤝 Draw';
+  lbAdd({game:'Speed Duel', name:n1, score:s1, detail:`${result1} vs ${n2} (${s1}-${s2})`});
+  lbAdd({game:'Speed Duel', name:n2, score:s2, detail:`${result2} vs ${n1} (${s2}-${s1})`});
+}
+function resetGame(){
+  playing=false; current=null;
+  s1=s2=round=0;
+  $('s1').textContent=0; $('s2').textContent=0;
+  $('round').textContent=0;
+  $('q').textContent='Press Start';
+  pad1.clear(); pad2.clear();
+  $('startBtn').textContent='▶ Start Match';
+  $('winner').classList.add('hidden');
+  $('tugFlag').style.left='50%';
+  updateTug();
+}
+updateTug();
+</script>
+</body></html>

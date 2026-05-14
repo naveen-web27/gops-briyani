@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🏆 Leaderboard</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head><body class="game-bg">
+<div class="game-wrap">
+  <div class="top-bar">
+    <a href="../index.html" class="back">← Hub</a>
+    <h1 class="game-title">🏆 Leaderboard</h1>
+    <div style="width:80px"></div>
+  </div>
+
+  <div style="text-align:center;margin-bottom:18px;opacity:.8;font-size:14px">
+    Session leaderboard · Refresh keeps it · Closing the browser tab clears it
+  </div>
+
+  <div class="lb-tabs" id="tabs">
+    <button class="lb-tab on" data-f="all">🌐 All Games</button>
+    <button class="lb-tab" data-f="Speed Duel">⚔️ Speed Duel</button>
+    <button class="lb-tab" data-f="Team vs Team">🏆 Team vs Team</button>
+    <button class="lb-tab" data-f="Tables Race">⏱️ Tables Race</button>
+    <button class="lb-tab" data-f="Mental Ladder">🪜 Mental Ladder</button>
+  </div>
+
+  <div id="lbWrap"></div>
+
+  <div class="controls" style="margin-top:24px">
+    <button class="btn btn-danger" onclick="clearAll()">🗑 Clear Leaderboard</button>
+    <button class="btn btn-secondary" onclick="render()">🔄 Refresh</button>
+  </div>
+</div>
+
+<script src="../assets/game.js"></script>
+<script>
+let filter = 'all';
+const $=id=>document.getElementById(id);
+
+document.querySelectorAll('.lb-tab').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.lb-tab').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    filter = b.dataset.f;
+    render();
+  });
+});
+
+function render(){
+  let list = lbAll();
+  if(filter !== 'all') list = list.filter(e=>e.game===filter);
+  list.sort((a,b)=>b.score-a.score);
+
+  if(list.length===0){
+    $('lbWrap').innerHTML = `<div class="lb-empty">No scores yet for "${filter}". Play a game! 🎮</div>`;
+    return;
+  }
+  const rows = list.map((e,i)=>{
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    const time = new Date(e.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    return `<tr>
+      <td class="lb-rank">${medal}</td>
+      <td><b>${escape(e.name)}</b></td>
+      <td><span class="lb-score">${e.score}</span></td>
+      <td>${escape(e.game)}</td>
+      <td style="opacity:.8;font-size:13px">${escape(e.detail||'')}</td>
+      <td style="opacity:.6;font-size:13px">${time}</td>
+    </tr>`;
+  }).join('');
+  $('lbWrap').innerHTML = `
+    <table class="lb-table">
+      <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Game</th><th>Details</th><th>Time</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+function clearAll(){
+  if(confirm('Clear all leaderboard scores?')){ lbClear(); render(); }
+}
+render();
+</script>
+</body></html>

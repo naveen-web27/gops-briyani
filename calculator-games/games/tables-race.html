@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tables Race ⏱️</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head><body class="game-bg">
+<div class="game-wrap">
+  <div class="top-bar">
+    <a href="../index.html" class="back">← Hub</a>
+    <h1 class="game-title">⏱️ Tables Race · 60s</h1>
+    <a href="leaderboard.html" class="back">🏆 Board</a>
+  </div>
+
+  <div style="text-align:center;margin-bottom:14px">
+    <input class="name-edit" id="pname" value="Player" maxlength="20">
+  </div>
+
+  <div class="timer-bar">
+    <span>⏱ <b id="time">60</b>s</span>
+    <span>✅ <b id="ok">0</b></span>
+    <span>❌ <b id="ko">0</b></span>
+  </div>
+
+  <div class="solo-q" id="q">Press Start</div>
+
+  <!-- 🚀 Race Track -->
+  <div class="race-track">
+    <div class="race-lane"></div>
+    <div class="race-start"></div>
+    <div class="race-trail" id="trail"></div>
+    <div class="race-rocket" id="rocket">🚀</div>
+    <div class="race-finish"></div>
+    <div class="race-finish-flag">🏁</div>
+  </div>
+
+  <div class="numpad" id="pad" style="margin-bottom:18px"></div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="startBtn" onclick="start()">▶ Start 60s Race</button>
+    <button class="btn btn-secondary" onclick="resetGame()">↺ Reset</button>
+  </div>
+</div>
+
+<div id="endC" class="overlay hidden">
+  <div class="overlay-card">
+    <h1>⏰ Time's Up!</h1>
+    <div class="big" id="finalOk">0</div>
+    <p id="msg">Correct answers</p>
+    <button class="btn btn-primary" onclick="resetGame()">Try Again</button>
+    <a href="leaderboard.html" class="btn btn-secondary" style="text-decoration:none;display:inline-block">View Board</a>
+  </div>
+</div>
+
+<script src="../assets/game.js"></script>
+<script>
+let cur=null,okC=0,koC=0,t=60,timer=null,playing=false;
+const $=id=>document.getElementById(id);
+const pad = buildNumpad($('pad'), v=>{
+  if(!playing||!cur) return;
+  if(v===cur.ans){ okC++; $('ok').textContent=okC; ok(); moveRocket(); next(); }
+  else { koC++; $('ko').textContent=koC; bad(); }
+});
+const TARGET = 30; // rocket reaches finish after 30 correct
+function moveRocket(){
+  const pct = Math.min(100, (okC/TARGET)*100);
+  $('rocket').style.left = pct + '%';
+  $('trail').style.width = pct + '%';
+  if(okC>=TARGET) $('rocket').textContent = '🏆';
+}
+function resetRocket(){
+  $('rocket').style.left = '0%';
+  $('rocket').textContent = '🚀';
+  $('trail').style.width = '0%';
+}
+
+function start(){
+  okC=0;koC=0;t=60;playing=true;
+  $('ok').textContent=0; $('ko').textContent=0; $('time').textContent=60;
+  $('startBtn').textContent='Playing...';
+  resetRocket();
+  next();
+  timer = setInterval(()=>{
+    t--; $('time').textContent=t;
+    if(t<=0) end();
+  },1000);
+}
+function next(){
+  cur = Q.tables();
+  $('q').textContent = cur.text + ' = ?';
+  pad.clear();
+}
+function end(){
+  clearInterval(timer); playing=false;
+  $('startBtn').textContent='▶ Start 60s Race';
+  $('finalOk').textContent = okC;
+  const acc = (okC+koC)?Math.round(okC/(okC+koC)*100):0;
+  $('msg').textContent = `Correct: ${okC} · Wrong: ${koC} · Accuracy: ${acc}%`;
+  $('endC').classList.remove('hidden');
+  win();
+  const name = $('pname').value || 'Player';
+  lbAdd({game:'Tables Race', name, score:okC, detail:`${koC} wrong · ${acc}% acc`});
+}
+function resetGame(){
+  clearInterval(timer); playing=false;
+  okC=koC=0;t=60;cur=null;
+  $('ok').textContent=0; $('ko').textContent=0; $('time').textContent=60;
+  $('q').textContent='Press Start';
+  pad.clear();
+  resetRocket();
+  $('startBtn').textContent='▶ Start 60s Race';
+  $('endC').classList.add('hidden');
+}
+</script>
+</body></html>
