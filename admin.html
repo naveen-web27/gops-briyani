@@ -254,6 +254,8 @@ table tr:last-child td{border-bottom:none}
   .top-logo span{display:none}
 }
 </style>
+<!-- Billzo config — load before any scripts so theme & vars are ready -->
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -261,7 +263,7 @@ table tr:last-child td{border-bottom:none}
 <div id="pin-screen">
   <div class="pin-box">
     <div class="pin-logo">Admin <span>Panel</span></div>
-    <div class="pin-sub">Spice Garden Management</div>
+    <div class="pin-sub" id="pin-sub-brand">Management Portal</div>
     <div class="pin-label">Enter Admin PIN</div>
     <div class="pin-dots">
       <div class="pin-dot" id="pd0"></div>
@@ -294,7 +296,7 @@ table tr:last-child td{border-bottom:none}
   <!-- Top bar -->
   <div class="top-bar">
     <button class="ham-btn" onclick="toggleSidebar()">☰</button>
-    <div class="top-logo">🍛 Spice Garden <span>Admin</span></div>
+    <div class="top-logo" id="admin-top-logo">🍽️ Admin <span>Panel</span></div>
     <div class="top-spacer"></div>
     <span class="top-status loading" id="conn-status">Connecting…</span>
     <button class="top-btn" onclick="refreshAll()">⟳ Refresh</button>
@@ -675,26 +677,22 @@ table tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ═══════════════════════════════════════════════
-   CONFIG — paste your Apps Script URL
-═══════════════════════════════════════════════ */
-const ADMIN_PIN = localStorage.getItem('admin_pin') || '1234';
+/* ── Billzo: read URLs & PINs from config.js ── */
+var _cfg = window.APP_CONFIG || {};
+const ADMIN_PIN      = localStorage.getItem('admin_pin')        || (_cfg.admin  && _cfg.admin.pin)         || '1234';
+let SCRIPT_URL       = localStorage.getItem('admin_script_url') || (_cfg.sheets && _cfg.sheets.scriptURL)  || '';
+const MENU_CSV_URL   = (_cfg.sheets && _cfg.sheets.menuCSV)    || '';
+const ORDERS_CSV_URL = (_cfg.sheets && _cfg.sheets.ordersCSV)  || '';
 
-/* ══════════════════════════════════════════════
-   URLs — same approach as billing.html
-   READ:  Published Google Sheet CSV (no CORS)
-   WRITE: Apps Script POST no-cors
-══════════════════════════════════════════════ */
-// Apps Script URL — for WRITE operations only (add/edit/delete dish, toggle available)
-const SCRIPT_URL = localStorage.getItem('admin_script_url') || 'https://script.google.com/macros/s/AKfycbyYP49LWQ5-sk5pHEaPIZwphe9fA2bfqeJdo4uJcLedzZ-m14pxcnxeB6inpZuBbxRxFg/exec';
-
-// Published CSV URLs — for READ operations (no CORS, works on GitHub Pages)
-// To get these: Google Sheet → File → Share → Publish to web → select tab → CSV → Publish
-// Then copy the link for each tab
-const MENU_CSV_URL   = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv';
-const ORDERS_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?gid=553776590&single=true&output=csv';
-// ↑ Replace gid= with the actual gid of your Orders tab
-// To find gid: open the sheet tab → look at URL → ...#gid=XXXXXXX
+/* Apply business name from config */
+(function() {
+  var biz = _cfg.business || {};
+  var name = biz.name || 'Admin';
+  var logoEl = document.getElementById('admin-top-logo');
+  if (logoEl) logoEl.innerHTML = '🍽️ ' + name + ' <span>Admin</span>';
+  var pinSubEl = document.getElementById('pin-sub-brand');
+  if (pinSubEl) pinSubEl.textContent = name + ' Management';
+})();
 
 /* ═══ STATE ═══ */
 let allMenu   = [];  // raw rows from sheet
