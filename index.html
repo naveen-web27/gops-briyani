@@ -368,6 +368,8 @@ footer{background:var(--dark2);color:rgba(255,255,255,.5)}
   .about-stats{grid-template-columns:1fr 1fr}
 }
 </style>
+<!-- Billzo config — load before any scripts so theme & vars are ready -->
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -695,90 +697,80 @@ footer{background:var(--dark2);color:rgba(255,255,255,.5)}
   EDIT ONLY THE CONFIG BELOW — everything is auto-populated
 ═══════════════════════════════════════════════════════════ -->
 <script>
-const CONFIG = {
-  name:       "Spice Garden Biryani",
-  tagline:    "Serving authentic flavours with love since 1975.",
-  since:      "1975",
-  phone:      "044-4004-4004",
-  email:      "hello@spicegarden.in",
-  orderLink:  "https://www.zomato.com/",
-  award:      "Best Biryani · Chennai 2024",
-  hoursShort: "11 AM – 11 PM Daily",
-  hoursLong:  "Mon–Thu: 11 AM – 10 PM\nFri–Sun: 11 AM – 11 PM\nHolidays: 12 PM – 10 PM",
-  slide0Em:   "Spice Garden",
-  abYears:    "50+",
-  abTitle:    "Torchbearers in Quality, Taste & Economy",
-  abP1:       "Born from a passion for authentic flavours, we have been delighting the people of Chennai since 1975. What started as a humble eatery has grown into one of the city's most beloved restaurant chains.",
-  abP2:       "Our chefs honour age-old recipes while embracing modern presentation. Every ingredient is sourced fresh, every dish cooked with care.",
-  stats: [
-    { n:"50+", l:"Years Old" },
-    { n:"3",   l:"Outlets"   },
-    { n:"1M+", l:"Guests"    },
-  ],
-  whyUs: [
-    { ic:"🍲", title:"Authentic Recipes",  desc:"Family recipes passed down over 5 decades of tradition" },
-    { ic:"🌿", title:"Fresh Ingredients",  desc:"Sourced fresh every morning from trusted local markets"  },
-    { ic:"👨‍🍳",title:"Expert Chefs",     desc:"25+ years of combined culinary expertise in our kitchen"  },
-    { ic:"🏅", title:"Award Winning",      desc:"Best Biryani Restaurant, Chennai Food Awards 2023 & 2024" },
-  ],
-  events: [
-    { title:"Catering Services",   desc:"We bring our legendary food directly to your venue — weddings, corporates, festivals.",  image:"images/catering.jpg",   emoji:"🍽️", btn:"Enquire Now",  href:"#contact" },
-    { title:"Private Party Halls", desc:"Premium venues at OMR Perungudi for weddings, birthdays, conferences and celebrations.", image:"images/partyhall.jpg",  emoji:"🎉", btn:"Book a Hall",  href:"#contact" },
-  ],
-  outlets: [
-    { name:"Alandur",         address:"No. 45, GST Road,\nAlandur, Chennai – 600 016",               phone:"044-2234 5678", map:"https://maps.google.com/?q=Alandur+Chennai" },
-    { name:"Perungudi (OMR)", address:"Old Mahabalipuram Road,\nPerungudi, Chennai – 600 096",       phone:"044-2896 4321", map:"https://maps.google.com/?q=Perungudi+OMR+Chennai" },
-    { name:"Thousand Lights",  address:"Anna Salai, Thousand Lights,\nChennai – 600 006",            phone:"044-4004 4004", map:"https://maps.google.com/?q=Thousand+Lights+Chennai" },
-  ],
-  testimonials: [
-    { name:"Priya S.",  date:"Jan 2025", stars:5, review:"Absolutely the best Chicken Biryani in Chennai. The aroma alone is worth the trip. My whole family loves it!" },
-    { name:"Arjun M.",  date:"Dec 2024", stars:5, review:"Celebrated my parents' anniversary here. The staff went above and beyond. Phirni was absolutely heavenly!" },
-    { name:"Divya R.",  date:"Feb 2025", stars:5, review:"Catered our corporate event for 200 people. Flawless — food arrived hot, biryani was a massive hit with everyone!" },
-  ],
-  socials: {
-    instagram: "https://instagram.com/",
-    facebook:  "https://facebook.com/",
-    whatsapp:  "https://wa.me/914440044004",
-    youtube:   "https://youtube.com/",
-  },
+/* ── Billzo: build CONFIG from APP_CONFIG (falls back to demo data) ── */
+(function() {
+  var _c  = window.APP_CONFIG || {};
+  var _b  = _c.business   || {};
+  var _a  = _c.about      || {};
+  var _sh = _c.sheets     || {};
+  var _sl = _c.heroSlides || [];
 
-  /* ═══════════════════════════════════════════
-     GOOGLE SHEET MENU — HOW TO CONNECT:
+  window.CONFIG = {
+    name:       _b.name       || 'Spice Garden Biryani',
+    tagline:    _b.tagline    || 'Serving authentic flavours with love since 1975.',
+    since:      _b.since      || '1975',
+    phone:      _b.phone      || '044-4004-4004',
+    email:      _b.email      || 'hello@spicegarden.in',
+    orderLink:  _b.orderLink  || 'https://www.zomato.com/',
+    award:      _b.award      || 'Best Biryani · Chennai 2024',
+    hoursShort: _b.hoursShort || '11 AM – 11 PM Daily',
+    hoursLong:  _b.hoursLong  || 'Mon–Thu: 11 AM – 10 PM\nFri–Sun: 11 AM – 11 PM',
+    slide0Em:   (_sl[0] && _sl[0].h1Em) || _b.name || 'Spice Garden',
+    slide0Rest: (_sl[0] && _sl[0].h1Rest) || '',
+    slide0Tag:  (_sl[0] && _sl[0].tag)   || 'Since 1975 · Chennai',
+    slide0P:    (_sl[0] && _sl[0].p)     || '',
+    slide1Em:   (_sl[1] && _sl[1].h1Em) || 'Feed',
+    slide1Rest: (_sl[1] && _sl[1].h1Rest) || ' Your Crowd',
+    slide1Tag:  (_sl[1] && _sl[1].tag)   || 'Catering Available',
+    slide1P:    (_sl[1] && _sl[1].p)     || 'Bulk orders & catering for every occasion.',
+    slide2Em:   (_sl[2] && _sl[2].h1Em) || 'Fresh',
+    slide2Rest: (_sl[2] && _sl[2].h1Rest) || ' Every Day',
+    slide2Tag:  (_sl[2] && _sl[2].tag)   || 'Open Daily',
+    slide2P:    (_sl[2] && _sl[2].p)     || 'Cooked fresh, served hot.',
+    abYears:    _a.years || '50+',
+    abTitle:    _a.title || 'Torchbearers in Quality, Taste & Economy',
+    abP1:       _a.p1    || 'Born from a passion for authentic flavours, we have been delighting the people of Chennai since 1975.',
+    abP2:       _a.p2    || 'Our chefs honour age-old recipes while embracing modern presentation.',
+    stats:      _a.stats || [
+      { n:'50+', l:'Years Old' },
+      { n:'3',   l:'Outlets'   },
+      { n:'1M+', l:'Guests'    },
+    ],
+    whyUs:    _c.whyUs || [
+      { ic:'🍲', title:'Authentic Recipes',  desc:'Family recipes passed down over 5 decades of tradition' },
+      { ic:'🌿', title:'Fresh Ingredients',  desc:'Sourced fresh every morning from trusted local markets'  },
+      { ic:'👨‍🍳', title:'Expert Chefs', desc:'25+ years of combined culinary expertise in our kitchen' },
+      { ic:'🏅', title:'Award Winning',      desc:'Best Biryani Restaurant, Chennai Food Awards 2023 & 2024' },
+    ],
+    events:   _c.events || [
+      { title:'Catering Services',   desc:'We bring our legendary food directly to your venue.',  image:'images/catering.jpg',  emoji:'🍽️', btn:'Enquire Now',  href:'#contact' },
+      { title:'Private Party Halls', desc:'Premium venues for weddings, birthdays, conferences.', image:'images/partyhall.jpg', emoji:'🎉', btn:'Book a Hall',  href:'#contact' },
+    ],
+    outlets:  _c.outlets || [
+      { name:'Alandur',         address:'No. 45, GST Road,\nAlandur, Chennai – 600 016',         phone:'044-2234 5678', map:'https://maps.google.com/?q=Alandur+Chennai' },
+      { name:'Perungudi (OMR)', address:'Old Mahabalipuram Road,\nPerungudi, Chennai – 600 096', phone:'044-2896 4321', map:'https://maps.google.com/?q=Perungudi+OMR+Chennai' },
+      { name:'Thousand Lights', address:'Anna Salai, Thousand Lights,\nChennai – 600 006',       phone:'044-4004 4004', map:'https://maps.google.com/?q=Thousand+Lights+Chennai' },
+    ],
+    testimonials: _c.testimonials || [
+      { name:'Priya S.',  date:'Jan 2025', stars:5, review:'Absolutely the best Chicken Biryani in Chennai. The aroma alone is worth the trip!' },
+      { name:'Arjun M.',  date:'Dec 2024', stars:5, review:'Celebrated my parents\u2019 anniversary here. The staff went above and beyond.' },
+      { name:'Divya R.',  date:'Feb 2025', stars:5, review:'Catered our corporate event for 200 people. Flawless — food arrived hot!' },
+    ],
+    socials: _c.social || {
+      instagram: 'https://instagram.com/',
+      facebook:  'https://facebook.com/',
+      whatsapp:  'https://wa.me/914440044004',
+      youtube:   'https://youtube.com/',
+    },
+    sheetCSV: _sh.menuCSV || '',
+    formURL:  _c.formURL  || '',
+  };
+})();
+var CONFIG = window.CONFIG;
 
-     1. Open Google Sheets → create a new sheet
-     2. First tab: rename to "Menu"
-     3. Row 1 must have EXACTLY these headers:
-        Category | Name | Description | Price | Type | ImageURL | Badge | Available
-
-     4. File → Share → Publish to web
-        → Select tab "Menu" → Select "CSV" → Publish
-     5. Copy the URL and paste below
-
-     COLUMN GUIDE:
-        Category    → Biryani / Starters / Main Course / etc.
-        Name        → Dish name
-        Description → Short text
-        Price       → Numbers only e.g. 380
-        Type        → Veg   OR   NonVeg
-        ImageURL    → Paste a direct image URL OR leave blank
-        Badge       → Bestseller  OR  New  OR  Chef Special  OR  (empty)
-        Available   → Yes  OR  No
-  ═══════════════════════════════════════════ */
-  sheetCSV: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv",
-  /* PASTE YOUR URL ABOVE 👆
-     Example:
-     sheetCSV: "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/pub?gid=0&single=true&output=csv",
-  */
-
-  /* ═══════════════════════════════════════════
-     RESERVATION FORM → GOOGLE SHEET (optional)
-     Paste Google Apps Script Web App URL here:
-  ═══════════════════════════════════════════ */
-  formURL: "",
-};
-
-/* ═══ DEMO DATA (shown when Sheet not connected) ═══ */
-const DEMO = [
+/* ── DEMO DATA: used when Sheet is not connected ──
+   If APP_CONFIG.demoMenu is set, it takes priority. */
+const DEMO = (window.APP_CONFIG && window.APP_CONFIG.demoMenu) || [
   {Category:"Biryani",     Name:"Chicken Dum Biryani",  Description:"Slow-cooked on dum with whole spices and saffron",             Price:"380", Type:"NonVeg", ImageURL:"https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Biryani_at_Bawarchi.jpg/320px-Biryani_at_Bawarchi.jpg", Badge:"Bestseller", Available:"Yes"},
   {Category:"Biryani",     Name:"Mutton Biryani",        Description:"Tender mutton in aged basmati rice — a house favourite",        Price:"450", Type:"NonVeg", ImageURL:"", Badge:"",           Available:"Yes"},
   {Category:"Biryani",     Name:"Veg Dum Biryani",       Description:"Seasonal vegetables layered in fragrant basmati with kewra",   Price:"280", Type:"Veg",    ImageURL:"", Badge:"New",        Available:"Yes"},

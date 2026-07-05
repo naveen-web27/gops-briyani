@@ -345,6 +345,8 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   @page{margin:10mm;size:A5;}
 }
 </style>
+<!-- Billzo config — load before any scripts so theme & vars are ready -->
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -385,7 +387,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   <div class="topbar">
     <div class="topbar-logo">&#129534; Billing</div>
     <span class="status-pill loading" id="statusPill">LOADING</span>
-    <input class="shop-input" id="shopInput" type="text" value="Spice Garden Biryani" placeholder="Shop name..." oninput="syncShop()"/>
+    <input class="shop-input" id="shopInput" type="text" value="" placeholder="Shop name..." oninput="syncShop()"/>
     <button class="btn-reload" id="reloadBtn" onclick="reloadSheet()" title="Reload menu from sheet">&#8635; Reload</button>
     <button class="btn-lock" onclick="lockScreen()">&#128274;</button>
   </div>
@@ -418,7 +420,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
     <!-- Bill Panel -->
     <div class="panel-bill hidden" id="panelBill">
       <div class="bill-hdr">
-        <div class="shop-name" id="billShop">Spice Garden Biryani</div>
+        <div class="shop-name" id="billShop"></div>
         <div class="meta-row">
           <span class="bm" id="billNum">Bill #0001</span>
           <span class="bm" id="billDate"></span>
@@ -499,11 +501,13 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var STAFF_PIN = "1234";
-var SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv";
-
-// Paste your deployed Apps Script Web App URL here to enable Close Order
-var ORDERS_URL = "https://script.google.com/macros/s/AKfycbyYP49LWQ5-sk5pHEaPIZwphe9fA2bfqeJdo4uJcLedzZ-m14pxcnxeB6inpZuBbxRxFg/exec";
+/* ── Billzo: read URLs & PIN from config.js ── */
+var _cfg      = window.APP_CONFIG || {};
+var _bil      = _cfg.billing  || {};
+var _sh       = _cfg.sheets   || {};
+var STAFF_PIN  = _bil.staffPin  || '1234';
+var SHEET_URL  = _sh.menuCSV   || '';
+var ORDERS_URL = _sh.scriptURL || '';
 
 /* ══════════════════════════════════════════
    PIN SECURITY — commented out for now.
@@ -584,6 +588,35 @@ window.addEventListener('resize', function() {
 var allProducts = [], cart = [], activeCategory = 'All', billNo = 1;
 
 function boot() {
+  /* ── Apply Billzo config to page ── */
+  var _bcfg = window.APP_CONFIG || {};
+  var _bbiz = _bcfg.business || {};
+  var _bbil = _bcfg.billing  || {};
+
+  // Set shop / business name
+  var shopName = _bbiz.name || 'My Shop';
+  document.getElementById('shopInput').value   = shopName;
+  document.getElementById('billShop').textContent = shopName;
+
+  // Build Customer Type dropdown from config
+  var custTypes = _bbil.customerTypes || ['Walk-in', 'Online'];
+  var custIcons = { 'Walk-in':'🚶', 'Online':'🌐', 'Takeaway':'🥡', 'Delivery':'🛵', 'Home Delivery':'🏠', 'Pre-order':'📅', 'Dine-in':'🍽️' };
+  document.getElementById('custType').innerHTML = custTypes.map(function(t) {
+    return '<option value="' + t + '" style="background:var(--dark)">' + (custIcons[t] || '') + ' ' + t + '</option>';
+  }).join('');
+
+  // Build Pay Mode dropdown from config
+  var payModes = _bbil.payModes || ['Cash', 'UPI', 'Card'];
+  var payIcons = { 'Cash':'💵', 'UPI':'💸', 'Card':'💳', 'GPay':'G', 'PhonePe':'📱', 'Other':'🏦' };
+  document.getElementById('payMode').innerHTML = payModes.map(function(m) {
+    return '<option value="' + m + '" style="background:var(--dark)">' + (payIcons[m] || '') + ' ' + m + '</option>';
+  }).join('');
+
+  // Set default GST rate
+  if (_bbil.gstDefault !== undefined) {
+    document.getElementById('gstRate').value = _bbil.gstDefault;
+  }
+
   document.getElementById('app').classList.add('open');
   setDate();
   loadSheet();
