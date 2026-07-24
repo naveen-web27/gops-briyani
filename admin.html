@@ -321,6 +321,9 @@ table tr:last-child td{border-bottom:none}
         <div class="nav-item" onclick="showPage('orders')" id="nav-orders">
           <span class="ni">🧾</span> Orders
         </div>
+        <div class="nav-item" onclick="showPage('inventory')" id="nav-inventory">
+          <span class="ni">📦</span> Inventory
+        </div>
         <div class="nav-item" onclick="showPage('analytics')" id="nav-analytics">
           <span class="ni">📈</span> Analytics
         </div>
@@ -506,6 +509,67 @@ table tr:last-child td{border-bottom:none}
       </div>
 
       <!-- ════ ANALYTICS ════ -->
+      <div class="page" id="page-inventory">
+        <div class="page-hdr">
+          <h1>Inventory</h1>
+          <p>Track stock levels and monitor low-stock items.</p>
+        </div>
+        <div class="page-body" style="display:flex;flex-direction:column;gap:14px">
+          <div class="summary-strip">
+            <div class="sum-item"><div class="sv" id="inv-total">0</div><div class="sl">Total Items</div></div>
+            <div class="sum-item"><div class="sv" id="inv-low">0</div><div class="sl">Low Stock</div></div>
+            <div class="sum-item"><div class="sv" id="inv-out">0</div><div class="sl">Out Of Stock</div></div>
+          </div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+            <input class="tbl-search" id="inv-search" placeholder="🔍 Search inventory…" oninput="renderInventoryTable()" style="width:220px"/>
+            <select class="tbl-filter" id="inv-cat-filter" onchange="renderInventoryTable()">
+              <option value="">All Categories</option>
+            </select>
+            <select class="tbl-filter" id="inv-status-filter" onchange="renderInventoryTable()">
+              <option value="">All Status</option>
+              <option value="ok">In Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="out">Out Of Stock</option>
+            </select>
+            <div class="tbl-spacer"></div>
+            <a class="btn-outline" href="inventory.html" target="_blank">Open Full Inventory Page ↗</a>
+          </div>
+
+          <div class="tbl-wrap" style="flex:1">
+            <div class="tbl-toolbar">
+              <span class="tbl-title">Inventory Items</span>
+              <div class="tbl-spacer"></div>
+              <button class="btn-export" onclick="exportInventoryCSV()">⬇ Export CSV</button>
+            </div>
+            <div class="tbl-scroll">
+              <table>
+                <thead><tr>
+                  <th>Item ID</th>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Unit</th>
+                  <th>Stock Qty</th>
+                  <th>Min Qty</th>
+                  <th>Unit Cost</th>
+                  <th>Supplier</th>
+                  <th>Status</th>
+                  <th>Last Updated</th>
+                </tr></thead>
+                <tbody id="inventory-tbl-body">
+                  <tr class="loading-row"><td colspan="10">Loading inventory…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="tbl-footer">
+              <span id="inventory-showing">Showing 0 items</span>
+              <span id="inventory-value">Inventory Value: ₹0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════ ANALYTICS ════ -->
       <div class="page" id="page-analytics">
         <div class="page-hdr">
           <h1>Analytics</h1>
@@ -579,7 +643,10 @@ table tr:last-child td{border-bottom:none}
                 <b style="color:#fff">Menu Sheet headers (Row 1):</b><br/>
                 <code style="color:var(--gold2);font-family:'DM Mono',monospace">Category | Name | Description | Price | Type | ImageURL | Badge | Available</code><br/><br/>
                 <b style="color:#fff">Orders Sheet headers (Row 1):</b><br/>
-                <code style="color:var(--gold2);font-family:'DM Mono',monospace">OrderNo | Timestamp | Customer | Items | Subtotal | GST | Discount | Total | Status</code><br/><br/>
+                <code style="color:var(--gold2);font-family:'DM Mono',monospace">Timestamp | Bill No | Customer | Items | Subtotal | GST | Discount | Total | Status | Customer Type | Phone | Address | Pay Mode | Order ID | Table No</code><br/><br/>
+                <b style="color:#fff">Inventory Sheet name (tab):</b> <code style="color:var(--gold2);font-family:'DM Mono',monospace">Inventory</code><br/>
+                <b style="color:#fff">Inventory headers (Row 1):</b><br/>
+                <code style="color:var(--gold2);font-family:'DM Mono',monospace">Item ID | Item Name | Category | Unit | Stock Qty | Min Qty | Unit Cost | Supplier | Status | Last Updated</code><br/><br/>
                 <b style="color:#fff">Deploy Apps Script as:</b> Web App → Execute as Me → Anyone can access
               </div>
             </div>
@@ -683,6 +750,7 @@ const ADMIN_PIN      = localStorage.getItem('admin_pin')        || (_cfg.admin  
 let SCRIPT_URL       = localStorage.getItem('admin_script_url') || (_cfg.sheets && _cfg.sheets.scriptURL)  || '';
 const MENU_CSV_URL   = (_cfg.sheets && _cfg.sheets.menuCSV)    || '';
 const ORDERS_CSV_URL = (_cfg.sheets && _cfg.sheets.ordersCSV)  || '';
+const INVENTORY_CSV_URL = (_cfg.sheets && _cfg.sheets.inventoryCSV) || '';
 
 /* Apply business name from config */
 (function() {
@@ -697,6 +765,7 @@ const ORDERS_CSV_URL = (_cfg.sheets && _cfg.sheets.ordersCSV)  || '';
 /* ═══ STATE ═══ */
 let allMenu   = [];  // raw rows from sheet
 let allOrders = [];  // raw rows from sheet
+let allInventory = []; // raw rows from inventory sheet
 let menuSortKey = '', menuSortAsc = true;
 let ordSortKey  = '', ordSortAsc  = false;
 let activeFilter = 'today';
@@ -823,7 +892,7 @@ function apiPost(payload){
 
 function refreshAll(){
   setConnStatus('loading','Loading…');
-  Promise.all([loadMenu(), loadOrders()])
+  Promise.all([loadMenu(), loadOrders(), loadInventory()])
     .then(function(){ setConnStatus('ok','✓ Connected'); })
     .catch(function(e){
       console.error(e);
@@ -1156,6 +1225,140 @@ function exportOrdersCSV(){
   const rows = getFilteredOrders();
   const headers = ['OrderNo','Timestamp','Customer','Items','Subtotal','GST','Discount','Total','Status'];
   downloadCSV([headers, ...rows.map(r=>headers.map(h=>r[h]||''))], 'orders-export.csv');
+}
+
+/* ═══════════════════════════════════════════════
+   INVENTORY
+═══════════════════════════════════════════════ */
+function toNum(v){
+  var n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function loadInventory(){
+  if (INVENTORY_CSV_URL) {
+    return fetchCSV(INVENTORY_CSV_URL).then(function(rows){
+      allInventory = rows;
+      buildInventoryFilters();
+      renderInventoryTable();
+    }).catch(function(){
+      // fallback to API read if CSV is not configured/published
+      if (!SCRIPT_URL) {
+        allInventory = [];
+        buildInventoryFilters();
+        renderInventoryTable();
+        return;
+      }
+      return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          allInventory = (d && d.rows) ? d.rows : [];
+          buildInventoryFilters();
+          renderInventoryTable();
+        })
+        .catch(function(){
+          allInventory = [];
+          buildInventoryFilters();
+          renderInventoryTable();
+        });
+    });
+  }
+
+  if (!SCRIPT_URL) {
+    allInventory = [];
+    buildInventoryFilters();
+    renderInventoryTable();
+    return Promise.resolve();
+  }
+
+  return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      allInventory = (d && d.rows) ? d.rows : [];
+      buildInventoryFilters();
+      renderInventoryTable();
+    })
+    .catch(function(){
+      allInventory = [];
+      buildInventoryFilters();
+      renderInventoryTable();
+    });
+}
+
+function buildInventoryFilters(){
+  var sel = document.getElementById('inv-cat-filter');
+  if (!sel) return;
+  var current = sel.value;
+  var cats = [...new Set(allInventory.map(function(r){ return r['Category'] || ''; }).filter(Boolean))];
+  sel.innerHTML = '<option value="">All Categories</option>' + cats.map(function(c){
+    return '<option value="' + esc(c) + '"' + (current === c ? ' selected' : '') + '>' + esc(c) + '</option>';
+  }).join('');
+}
+
+function inventoryState(r){
+  var q = toNum(r['Stock Qty']);
+  var m = toNum(r['Min Qty']);
+  if (q <= 0) return 'out';
+  if (q <= m) return 'low';
+  return 'ok';
+}
+
+function getFilteredInventory(){
+  var q = (document.getElementById('inv-search').value || '').toLowerCase();
+  var c = document.getElementById('inv-cat-filter').value;
+  var st = document.getElementById('inv-status-filter').value;
+  return allInventory.filter(function(r){
+    var txt = ((r['Item Name'] || '') + ' ' + (r['Category'] || '') + ' ' + (r['Supplier'] || '')).toLowerCase();
+    if (q && !txt.includes(q)) return false;
+    if (c && (r['Category'] || '') !== c) return false;
+    if (st && inventoryState(r) !== st) return false;
+    return true;
+  });
+}
+
+function renderInventoryTable(){
+  var body = document.getElementById('inventory-tbl-body');
+  if (!body) return;
+
+  var rows = getFilteredInventory();
+  if (!rows.length){
+    body.innerHTML = '<tr class="loading-row"><td colspan="10">No inventory data found</td></tr>';
+  } else {
+    body.innerHTML = rows.map(function(r){
+      var st = inventoryState(r);
+      var badge = st === 'ok'
+        ? '<span class="pill pill-yes">In Stock</span>'
+        : (st === 'low' ? '<span class="pill pill-best">Low Stock</span>' : '<span class="pill pill-chef">Out Of Stock</span>');
+      return '<tr>'
+        + '<td style="font-family:\'DM Mono\',monospace;color:var(--gold2)">' + esc(r['Item ID'] || '') + '</td>'
+        + '<td style="font-weight:600;color:#fff">' + esc(r['Item Name'] || '') + '</td>'
+        + '<td>' + esc(r['Category'] || '') + '</td>'
+        + '<td>' + esc(r['Unit'] || '') + '</td>'
+        + '<td>' + toNum(r['Stock Qty']).toFixed(2) + '</td>'
+        + '<td>' + toNum(r['Min Qty']).toFixed(2) + '</td>'
+        + '<td>₹' + toNum(r['Unit Cost']).toFixed(2) + '</td>'
+        + '<td>' + esc(r['Supplier'] || '') + '</td>'
+        + '<td>' + badge + '</td>'
+        + '<td style="font-size:.76rem;color:rgba(255,255,255,.45)">' + esc(r['Last Updated'] || '') + '</td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  var low = rows.filter(function(r){ return inventoryState(r) === 'low'; }).length;
+  var out = rows.filter(function(r){ return inventoryState(r) === 'out'; }).length;
+  var value = rows.reduce(function(s, r){ return s + toNum(r['Stock Qty']) * toNum(r['Unit Cost']); }, 0);
+
+  document.getElementById('inv-total').textContent = rows.length;
+  document.getElementById('inv-low').textContent = low;
+  document.getElementById('inv-out').textContent = out;
+  document.getElementById('inventory-showing').textContent = 'Showing ' + rows.length + ' of ' + allInventory.length + ' items';
+  document.getElementById('inventory-value').textContent = 'Inventory Value: ₹' + value.toFixed(2);
+}
+
+function exportInventoryCSV(){
+  const rows = getFilteredInventory();
+  const headers = ['Item ID','Item Name','Category','Unit','Stock Qty','Min Qty','Unit Cost','Supplier','Status','Last Updated'];
+  downloadCSV([headers, ...rows.map(function(r){ return headers.map(function(h){ return r[h] || ''; }); })], 'inventory-export.csv');
 }
 
 /* ═══════════════════════════════════════════════

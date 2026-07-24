@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Inventory Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --red:#8b1a1a;--red2:#6e1212;
+  --gold:#c9922a;--gold2:#e8c46a;
+  --dark:#180900;--dark2:#100500;
+  --panel:#1e0f05;
+  --border:rgba(255,255,255,.1);
+  --ok:#2e7d32;
+  --warn:#f59e0b;
+  --bad:#dc2626;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--dark);color:#fff;min-height:100vh}
+.top{
+  position:sticky;top:0;z-index:10;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:12px 14px;background:var(--dark2);border-bottom:1px solid rgba(201,146,42,.22);
+}
+.brand{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold2)}
+.sp{flex:1}
+.pill{font-size:.72rem;padding:3px 10px;border-radius:20px;background:rgba(255,255,255,.08);border:1px solid var(--border);color:rgba(255,255,255,.75)}
+.pill.ok{background:rgba(76,175,80,.2);border-color:rgba(76,175,80,.35);color:#81c784}
+.pill.err{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.35);color:#fca5a5}
+.btn{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-weight:600}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--red);border-color:var(--red)}
+.btn.primary:active{background:var(--red2)}
+.btn.gold{background:rgba(201,146,42,.2);border-color:rgba(201,146,42,.35);color:var(--gold2)}
+.wrap{padding:14px;display:flex;flex-direction:column;gap:12px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px}
+.card .k{font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.45)}
+.card .v{margin-top:6px;font-family:'Playfair Display',serif;font-size:1.5rem;color:#fff}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.inp,.sel{
+  background:rgba(255,255,255,.08);border:1px solid var(--border);color:#fff;
+  padding:8px 10px;border-radius:8px;outline:none;font-size:.88rem
+}
+.inp::placeholder{color:rgba(255,255,255,.35)}
+.tbl{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;overflow:hidden
+}
+.tbl-head{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tbl-title{font-weight:700}
+.tbl-scroll{overflow:auto;max-height:58vh}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left;vertical-align:middle;white-space:nowrap}
+th{position:sticky;top:0;background:rgba(255,255,255,.06);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5)}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{font-size:.68rem;padding:2px 8px;border-radius:20px;border:1px solid var(--border)}
+.badge.ok{background:rgba(76,175,80,.15);border-color:rgba(76,175,80,.35);color:#86efac}
+.badge.low{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.35);color:#fcd34d}
+.badge.out{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.35);color:#fca5a5}
+.actions{display:flex;gap:5px}
+.actions button{padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer}
+.actions button:active{transform:translateY(1px)}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:12px}
+.modal-bg.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:12px;width:min(520px,100%)}
+.mh{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center}
+.mh h3{font-family:'Playfair Display',serif}
+.mb{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mb .full{grid-column:1 / -1}
+.mf{padding:12px 14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.toast{position:fixed;right:16px;bottom:16px;z-index:99;padding:10px 14px;border-radius:8px;display:none}
+.toast.ok{background:#1a3a2a;border:1px solid #2e7d52;color:#86efac}
+.toast.err{background:#3a1a1a;border:1px solid #7d2e2e;color:#fca5a5}
+.toast.show{display:block}
+@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)} .mb{grid-template-columns:1fr}}
+@media(max-width:620px){.cards{grid-template-columns:1fr}}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+  <div class="top">
+    <div class="brand" id="brandName">Inventory</div>
+    <span class="pill" id="connPill">Disconnected</span>
+    <div class="sp"></div>
+    <button class="btn gold" onclick="openModal()">+ Add Item</button>
+    <button class="btn" onclick="loadInventory()">Reload</button>
+    <a class="btn" href="admin.html">Admin</a>
+  </div>
+
+  <div class="wrap">
+    <div class="cards">
+      <div class="card"><div class="k">Total Items</div><div class="v" id="sTotal">0</div></div>
+      <div class="card"><div class="k">Low Stock</div><div class="v" id="sLow">0</div></div>
+      <div class="card"><div class="k">Out of Stock</div><div class="v" id="sOut">0</div></div>
+      <div class="card"><div class="k">Inventory Value</div><div class="v" id="sVal">Rs.0</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input class="inp" id="q" placeholder="Search by name/category/supplier" oninput="renderTable()"/>
+      <select class="sel" id="cat" onchange="renderTable()"><option value="">All Categories</option></select>
+      <select class="sel" id="st" onchange="renderTable()">
+        <option value="">All Status</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+    </div>
+
+    <div class="tbl">
+      <div class="tbl-head">
+        <div class="tbl-title">Inventory Items</div>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th>Item</th><th>Category</th><th>Unit</th><th>Stock</th><th>Min</th><th>Unit Cost</th><th>Supplier</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="tb"><tr><td colspan="9" style="color:rgba(255,255,255,.45)">No data</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="mBg">
+    <div class="modal">
+      <div class="mh"><h3 id="mTitle">Add Inventory Item</h3><div class="sp"></div><button class="btn" onclick="closeModal()">X</button></div>
+      <div class="mb">
+        <input type="hidden" id="fItemId"/>
+        <input class="inp full" id="fName" placeholder="Item Name *"/>
+        <input class="inp" id="fCategory" placeholder="Category"/>
+        <input class="inp" id="fUnit" placeholder="Unit (Nos, Kg, Ltr)"/>
+        <input class="inp" id="fQty" type="number" min="0" step="0.01" placeholder="Stock Qty"/>
+        <input class="inp" id="fMin" type="number" min="0" step="0.01" placeholder="Min Qty"/>
+        <input class="inp" id="fCost" type="number" min="0" step="0.01" placeholder="Unit Cost"/>
+        <input class="inp" id="fSupplier" placeholder="Supplier"/>
+        <select class="sel full" id="fStatus"><option value="Active">Active</option><option value="Inactive">Inactive</option></select>
+      </div>
+      <div class="mf">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn primary" onclick="saveItem()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+var cfg = window.APP_CONFIG || {};
+var sheets = cfg.sheets || {};
+var SCRIPT_URL = sheets.scriptURL || '';
+var INVENTORY_CSV_URL = sheets.inventoryCSV || '';
+var rows = [];
+
+(function init(){
+  var biz = (cfg.business && cfg.business.name) ? cfg.business.name : 'Inventory';
+  document.getElementById('brandName').textContent = biz + ' - Inventory';
+  loadInventory();
+})();
+
+function setConn(ok, msg){
+  var p = document.getElementById('connPill');
+  p.className = 'pill ' + (ok ? 'ok' : 'err');
+  p.textContent = msg;
+}
+
+function toast(msg, type){
+  var t = document.getElementById('toast');
+  t.className = 'toast ' + (type || 'ok') + ' show';
+  t.textContent = msg;
+  setTimeout(function(){ t.className = 'toast'; }, 2800);
+}
+
+function esc(s){ return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function num(v){ var n = parseFloat(String(v||'').replace(/[^0-9.-]/g,'')); return isNaN(n) ? 0 : n; }
+
+function csvSplit(line){
+  var out = [], cur = '', q = false;
+  for (var i = 0; i < line.length; i++) {
+    var c = line[i];
+    if (c === '"') q = !q;
+    else if (c === ',' && !q) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSVRows(csv){
+  var lines = csv.replace(/\r/g,'').trim().split('\n').filter(Boolean);
+  if (lines.length < 2) return [];
+  var headers = csvSplit(lines[0]);
+  return lines.slice(1).map(function(line, idx){
+    var cols = csvSplit(line);
+    var obj = { _row: idx + 2 };
+    headers.forEach(function(h, i){ obj[String(h).trim()] = (cols[i] || '').trim(); });
+    return obj;
+  });
+}
+
+function fetchByApi(){
+  if (!SCRIPT_URL) return Promise.resolve([]);
+  return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
+    .then(function(r){ return r.json(); })
+    .then(function(d){ return (d && d.rows) ? d.rows : []; });
+}
+
+function fetchByCsv(){
+  if (!INVENTORY_CSV_URL) return Promise.resolve([]);
+  var sep = INVENTORY_CSV_URL.indexOf('?') >= 0 ? '&' : '?';
+  return fetch(INVENTORY_CSV_URL + sep + 't=' + Date.now())
+    .then(function(r){ if(!r.ok) throw new Error('CSV ' + r.status); return r.text(); })
+    .then(parseCSVRows);
+}
+
+function loadInventory(){
+  setConn(false, 'Loading...');
+  fetchByApi()
+    .then(function(apiRows){
+      if (apiRows.length) return apiRows;
+      return fetchByCsv();
+    })
+    .then(function(data){
+      rows = data || [];
+      buildCatFilter();
+      renderTable();
+      renderSummary();
+      setConn(true, 'Connected');
+    })
+    .catch(function(e){
+      rows = [];
+      renderTable();
+      renderSummary();
+      setConn(false, 'Error');
+      toast('Could not load inventory: ' + e.message, 'err');
+    });
+}
+
+function buildCatFilter(){
+  var el = document.getElementById('cat');
+  var cur = el.value;
+  var cats = [];
+  rows.forEach(function(r){
+    var c = String(r['Category'] || r.category || '').trim();
+    if (c && cats.indexOf(c) < 0) cats.push(c);
+  });
+  el.innerHTML = '<option value="">All Categories</option>' + cats.map(function(c){ return '<option value="' + esc(c) + '">' + esc(c) + '</option>'; }).join('');
+  el.value = cur;
+}
+
+function rowStockState(r){
+  var q = num(r['Stock Qty']);
+  var m = num(r['Min Qty']);
+  if (q <= 0) return 'out';
+  if (q <= m) return 'low';
+  return 'ok';
+}
+
+function renderSummary(){
+  var total = rows.length, low = 0, out = 0, val = 0;
+  rows.forEach(function(r){
+    var s = rowStockState(r);
+    if (s === 'low') low++;
+    if (s === 'out') out++;
+    val += num(r['Stock Qty']) * num(r['Unit Cost']);
+  });
+  document.getElementById('sTotal').textContent = total;
+  document.getElementById('sLow').textContent = low;
+  document.getElementById('sOut').textContent = out;
+  document.getElementById('sVal').textContent = 'Rs.' + val.toFixed(2);
+}
+
+function filteredRows(){
+  var q = (document.getElementById('q').value || '').toLowerCase();
+  var c = document.getElementById('cat').value;
+  var s = document.getElementById('st').value;
+  return rows.filter(function(r){
+    var name = String(r['Item Name'] || '').toLowerCase();
+    var cat = String(r['Category'] || '').toLowerCase();
+    var sup = String(r['Supplier'] || '').toLowerCase();
+    if (q && !(name.includes(q) || cat.includes(q) || sup.includes(q))) return false;
+    if (c && String(r['Category'] || '') !== c) return false;
+    if (s && String(r['Status'] || 'Active') !== s) return false;
+    return true;
+  });
+}
+
+function renderTable(){
+  var list = filteredRows();
+  var tb = document.getElementById('tb');
+  if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="9" style="color:rgba(255,255,255,.45)">No inventory items</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(function(r){
+    var state = rowStockState(r);
+    var bcls = state === 'ok' ? 'ok' : (state === 'low' ? 'low' : 'out');
+    var blbl = state === 'ok' ? 'In Stock' : (state === 'low' ? 'Low' : 'Out');
+    return '<tr>'
+      + '<td><b>' + esc(r['Item Name']) + '</b><br/><small style="color:rgba(255,255,255,.45);font-family:\'DM Mono\',monospace">' + esc(r['Item ID']) + '</small></td>'
+      + '<td>' + esc(r['Category']) + '</td>'
+      + '<td>' + esc(r['Unit'] || 'Nos') + '</td>'
+      + '<td>' + num(r['Stock Qty']).toFixed(2) + '</td>'
+      + '<td>' + num(r['Min Qty']).toFixed(2) + '</td>'
+      + '<td>Rs.' + num(r['Unit Cost']).toFixed(2) + '</td>'
+      + '<td>' + esc(r['Supplier'] || '') + '</td>'
+      + '<td><span class="badge ' + bcls + '">' + blbl + '</span></td>'
+      + '<td class="actions">'
+      + '<button onclick="quickAdjust(\'' + esc(r['Item ID']) + '\',-1)">-1</button>'
+      + '<button onclick="quickAdjust(\'' + esc(r['Item ID']) + '\',1)">+1</button>'
+      + '<button onclick="openModal(\'' + esc(r['Item ID']) + '\')">Edit</button>'
+      + '<button onclick="deleteItem(' + r._row + ',\'' + esc(r['Item ID']) + '\')">Del</button>'
+      + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function openModal(itemId){
+  document.getElementById('mBg').classList.add('open');
+  document.getElementById('mTitle').textContent = itemId ? 'Edit Inventory Item' : 'Add Inventory Item';
+  if (!itemId) {
+    ['fItemId','fName','fCategory','fUnit','fQty','fMin','fCost','fSupplier'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('fStatus').value = 'Active';
+    return;
+  }
+  var r = rows.find(function(x){ return String(x['Item ID']) === String(itemId); });
+  if (!r) return;
+  document.getElementById('fItemId').value = r['Item ID'] || '';
+  document.getElementById('fName').value = r['Item Name'] || '';
+  document.getElementById('fCategory').value = r['Category'] || '';
+  document.getElementById('fUnit').value = r['Unit'] || 'Nos';
+  document.getElementById('fQty').value = num(r['Stock Qty']);
+  document.getElementById('fMin').value = num(r['Min Qty']);
+  document.getElementById('fCost').value = num(r['Unit Cost']);
+  document.getElementById('fSupplier').value = r['Supplier'] || '';
+  document.getElementById('fStatus').value = r['Status'] || 'Active';
+}
+
+function closeModal(){ document.getElementById('mBg').classList.remove('open'); }
+
+function saveItem(){
+  var payload = {
+    action: 'saveInventoryItem',
+    itemId: document.getElementById('fItemId').value.trim(),
+    itemName: document.getElementById('fName').value.trim(),
+    category: document.getElementById('fCategory').value.trim() || 'General',
+    unit: document.getElementById('fUnit').value.trim() || 'Nos',
+    stockQty: document.getElementById('fQty').value || '0',
+    minQty: document.getElementById('fMin').value || '0',
+    unitCost: document.getElementById('fCost').value || '0',
+    supplier: document.getElementById('fSupplier').value.trim(),
+    status: document.getElementById('fStatus').value
+  };
+  if (!payload.itemName) { toast('Item name is required', 'err'); return; }
+  if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
+
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify(payload)
+  }).then(function(){
+    closeModal();
+    toast('Saved. Refreshing...', 'ok');
+    setTimeout(loadInventory, 1200);
+  }).catch(function(){
+    toast('Save failed', 'err');
+  });
+}
+
+function quickAdjust(itemId, delta){
+  if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'adjustInventoryStock', itemId:itemId, delta:delta })
+  }).then(function(){
+    toast('Stock updated', 'ok');
+    setTimeout(loadInventory, 900);
+  }).catch(function(){
+    toast('Update failed', 'err');
+  });
+}
+
+function deleteItem(rowIndex, itemId){
+  if (!confirm('Delete this item?')) return;
+  if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action:'deleteInventoryItem', rowIndex:rowIndex, itemId:itemId })
+  }).then(function(){
+    toast('Deleted', 'ok');
+    setTimeout(loadInventory, 900);
+  }).catch(function(){
+    toast('Delete failed', 'err');
+  });
+}
+
+document.getElementById('mBg').addEventListener('click', function(e){
+  if (e.target && e.target.id === 'mBg') closeModal();
+});
+</script>
+</body>
+</html>

@@ -265,6 +265,14 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 }
 .btn-close-order:active{background:var(--red2);}
 .btn-close-order.sending{opacity:.6;pointer-events:none;}
+.btn-hold-order{
+  flex:1.6;padding:13px;border:1px solid rgba(201,146,42,.38);border-radius:8px;
+  background:rgba(201,146,42,.2);color:var(--gold2);
+  font-family:'Playfair Display',serif;font-weight:700;font-size:.86rem;
+  cursor:pointer;touch-action:manipulation;transition:.13s;
+}
+.btn-hold-order:active{background:rgba(201,146,42,.35);color:#fff;}
+.btn-hold-order.sending{opacity:.6;pointer-events:none;}
 
 /* Close Order toast */
 .toast{
@@ -275,6 +283,37 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 }
 .toast.err{background:#3a1e1e;border-color:#7d2e2e;color:#f87171;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Open held bills modal */
+.modal-bg{
+  position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.68);
+  display:none;align-items:center;justify-content:center;padding:16px;
+}
+.modal-bg.open{display:flex;}
+.hold-modal{
+  width:min(720px,100%);max-height:82vh;overflow:hidden;
+  background:var(--dark2);border:1px solid rgba(201,146,42,.22);border-radius:12px;
+  display:flex;flex-direction:column;
+}
+.hold-hdr{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.hold-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:#fff;}
+.hold-sp{flex:1;}
+.hold-close{background:none;border:none;color:rgba(255,255,255,.45);font-size:1.2rem;cursor:pointer;padding:4px 8px;}
+.hold-close:active{color:#fff;}
+.hold-tools{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.hold-tools input{
+  flex:1;min-width:180px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+  color:#fff;padding:8px 10px;border-radius:7px;font-size:.85rem;outline:none;
+}
+.hold-tools input::placeholder{color:rgba(255,255,255,.3);}
+.hold-list{overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px;}
+.hold-card{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);border-radius:9px;padding:10px;display:grid;grid-template-columns:1fr auto;gap:8px;}
+.hold-meta{font-size:.8rem;color:rgba(255,255,255,.72);line-height:1.5;}
+.hold-bill{font-size:.92rem;color:#fff;font-weight:700;}
+.hold-status{font-size:.68rem;padding:2px 8px;border-radius:20px;border:1px solid rgba(201,146,42,.3);color:var(--gold2);background:rgba(201,146,42,.15);display:inline-block;margin-left:6px;}
+.hold-resume{align-self:center;background:var(--gold);border:none;color:#fff;padding:9px 12px;border-radius:7px;font-weight:700;cursor:pointer;}
+.hold-resume:active{background:#a67520;}
+.hold-empty{padding:26px 10px;text-align:center;color:rgba(255,255,255,.35);}
 
 /* ── CUSTOM PRODUCT FORM ── */
 .custom-form{
@@ -313,6 +352,13 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .btn-reload:active{background:rgba(201,146,42,.2);color:var(--gold);}
 .btn-reload.spinning{animation:spin .7s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.btn-open-holds{
+  background:rgba(201,146,42,.14);border:1px solid rgba(201,146,42,.35);
+  color:var(--gold2);padding:7px 10px;border-radius:6px;
+  font-size:.74rem;cursor:pointer;white-space:nowrap;flex-shrink:0;touch-action:manipulation;
+  transition:.13s;
+}
+.btn-open-holds:active{background:rgba(201,146,42,.3);color:#fff;}
 
 /* Floating cart bar (mobile only) */
 .mobile-cart-bar{display:none;position:fixed;bottom:12px;left:12px;right:12px;z-index:100;}
@@ -327,7 +373,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 @media print{
   #pin-screen{display:none!important;}
-  .topbar,.panel-products,.actions,.qctrl button,.bli-del,.sum-ctrl-row,.cat-bar,.search-row,.mobile-tabs,.mobile-cart-bar,.custom-form,.btn-wa-bill,.btn-dl-bill,.btn-clear,.btn-print,.btn-close-order{display:none!important;}
+  .topbar,.panel-products,.actions,.qctrl button,.bli-del,.sum-ctrl-row,.cat-bar,.search-row,.mobile-tabs,.mobile-cart-bar,.custom-form,.btn-wa-bill,.btn-dl-bill,.btn-clear,.btn-print,.btn-close-order,.btn-hold-order,.btn-open-holds{display:none!important;}
   .cust-row input{color:#333!important;background:#f5f5f5!important;border:1px solid #ddd!important;}
   body,html{overflow:visible;height:auto;}
   #app{display:block!important;height:auto!important;}
@@ -387,6 +433,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   <div class="topbar">
     <div class="topbar-logo">&#129534; Billing</div>
     <span class="status-pill loading" id="statusPill">LOADING</span>
+    <button class="btn-open-holds" id="openBillsBtn" onclick="openHeldBillsModal()">Open Bills (0)</button>
     <input class="shop-input" id="shopInput" type="text" value="" placeholder="Shop name..." oninput="syncShop()"/>
     <button class="btn-reload" id="reloadBtn" onclick="reloadSheet()" title="Reload menu from sheet">&#8635; Reload</button>
     <button class="btn-lock" onclick="lockScreen()">&#128274;</button>
@@ -439,6 +486,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         <label>📱 +91</label>
         <input type="tel" id="custPhone" maxlength="10" placeholder="WhatsApp no."
           style="max-width:110px;" oninput="this.value=this.value.replace(/[^0-9]/g,'')"/>
+        <label>🍽️ Table</label>
+        <input type="text" id="tableNo" placeholder="Optional"
+          style="max-width:90px;"/>
         <label>💳</label>
         <select id="payMode" onchange="updateSummary()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
           color:#fff;padding:6px 8px;border-radius:6px;font-size:.82rem;outline:none;cursor:pointer;font-family:'DM Sans',sans-serif;">
@@ -482,6 +532,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         <button class="btn-clear" onclick="clearBill()">&#128465;</button>
         <button class="btn-print" onclick="printBill()" title="Print Bill">&#128424; Print</button>
         <button class="btn-dl-bill" onclick="downloadBillImg()" title="Download Bill Image">📥 Image</button>
+        <button class="btn-hold-order" id="holdOrderBtn" onclick="holdOrder()">⏸ Hold</button>
         <button class="btn-wa-bill" id="waBillBtn" onclick="sendWaBill()">
           <svg width="15" height="15" fill="#fff" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.549 4.126 1.51 5.868L0 24l6.29-1.49A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.032-1.384l-.36-.214-3.733.883.899-3.647-.234-.375A9.818 9.818 0 1112 21.818z"/></svg>
           <span id="waBtnTxt">WhatsApp</span>
@@ -497,6 +548,23 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
       <span>View Bill &nbsp;<span class="mcart-count" id="mCartCount">0 items</span></span>
       <div class="mcart-right"><span id="mCartTotal">&#8377;0.00</span> &#8594;</div>
     </button>
+  </div>
+</div>
+
+<div class="modal-bg" id="heldBillsModal">
+  <div class="hold-modal">
+    <div class="hold-hdr">
+      <div class="hold-title">Open / Held Bills</div>
+      <div class="hold-sp"></div>
+      <button class="hold-close" onclick="closeHeldBillsModal()">✕</button>
+    </div>
+    <div class="hold-tools">
+      <input id="heldSearch" type="text" placeholder="Search bill no, customer, phone, table..." oninput="renderHeldBillsList()"/>
+      <button class="btn-reload" onclick="refreshHeldBills()">⟳ Refresh</button>
+    </div>
+    <div class="hold-list" id="heldBillsList">
+      <div class="hold-empty">No held bills</div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -586,6 +654,121 @@ window.addEventListener('resize', function() {
 
 /* ── APP STATE ── */
 var allProducts = [], cart = [], activeCategory = 'All', billNo = 1;
+var allOrdersCache = [];
+var heldBillsCache = [];
+var currentOrderId = '';
+
+function makeOrderId() {
+  return 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+}
+
+function parseBillNoNum(txt) {
+  var m = String(txt || '').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function setNextBillNoFromRows(rows) {
+  var maxNo = 0;
+  (rows || []).forEach(function(r) {
+    var v = parseBillNoNum(r['Bill No'] || r.OrderNo || '');
+    if (v > maxNo) maxNo = v;
+  });
+  billNo = Math.max(1, maxNo + 1);
+  setDate();
+}
+
+function beginNewBill() {
+  currentOrderId = makeOrderId();
+  setDate();
+}
+
+function fetchOrdersRows() {
+  if (!ORDERS_URL) return Promise.resolve([]);
+  return fetch(ORDERS_URL + '?action=orders&t=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) { return (data && data.rows) ? data.rows : []; })
+    .catch(function() { return []; });
+}
+
+function normalizeStatus(s) {
+  return String(s || '').trim().toLowerCase();
+}
+
+function refreshOpenBillsCount() {
+  var count = heldBillsCache.length;
+  document.getElementById('openBillsBtn').textContent = 'Open Bills (' + count + ')';
+}
+
+function parseAmount(s) {
+  var n = parseFloat(String(s || '').replace(/[^0-9.]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function parseGstRate(gstText) {
+  var m = String(gstText || '').match(/GST\s*(\d+(?:\.\d+)?)%/i);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+function parseDiscount(row) {
+  var txt = String((row && row.Discount) || '--').trim();
+  var val = parseAmount(txt);
+  return { value: val, type: 'flat' };
+}
+
+function buildItemsSummary() {
+  return cart.map(function(i) {
+    return i.name + ' x' + i.qty + ' (' + (i.price * i.qty).toFixed(2) + ')';
+  }).join(' | ');
+}
+
+function parseItemsSummary(itemsSummary) {
+  var out = [];
+  String(itemsSummary || '').split(' | ').forEach(function(part) {
+    var p = part.trim();
+    if (!p) return;
+    var m = p.match(/^(.*) x(\d+) \((\d+(?:\.\d+)?)\)$/);
+    if (m) {
+      var name = m[1].trim();
+      var qty = parseInt(m[2], 10) || 1;
+      var lineTotal = parseFloat(m[3]) || 0;
+      var unit = qty > 0 ? lineTotal / qty : lineTotal;
+      out.push({ name: name, price: unit, cat: 'Held', qty: qty });
+    }
+  });
+  return out;
+}
+
+function getTotals() {
+  var sub = cart.reduce(function(s, i) { return s + i.price * i.qty; }, 0);
+  var gst = parseFloat(document.getElementById('gstRate').value) || 0;
+  var gstAmt = sub * gst / 100;
+  var dv = parseFloat(document.getElementById('discountVal').value) || 0;
+  var dtype = document.getElementById('discountType').value;
+  var discAmt = dtype === 'pct' ? ((sub + gstAmt) * dv / 100) : Math.min(dv, sub + gstAmt);
+  var total = Math.max(0, sub + gstAmt - discAmt);
+  return { sub: sub, gst: gst, gstAmt: gstAmt, dv: dv, dtype: dtype, discAmt: discAmt, total: total };
+}
+
+function resetBillInputs() {
+  document.getElementById('custInput').value = '';
+  document.getElementById('custPhone').value = '';
+  document.getElementById('custAddress').value = '';
+  document.getElementById('tableNo').value = '';
+  document.getElementById('custType').selectedIndex = 0;
+  document.getElementById('payMode').selectedIndex = 0;
+  document.getElementById('discountVal').value = '0';
+}
+
+function resetCurrentBillAfterSave() {
+  cart = [];
+  billNo += 1;
+  beginNewBill();
+  resetBillInputs();
+  renderBill();
+  renderProducts();
+  updateCartBar();
+  updateSummary();
+}
 
 function boot() {
   /* ── Apply Billzo config to page ── */
@@ -618,19 +801,17 @@ function boot() {
   }
 
   document.getElementById('app').classList.add('open');
-  setDate();
+  beginNewBill();
   loadSheet();
-  // Fetch bill number from Orders sheet: last row count + 1
-  if (ORDERS_URL) {
-    fetch(ORDERS_URL + '?action=orders&t=' + Date.now())
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        var rows = (data && data.rows) ? data.rows : [];
-        billNo = rows.length + 1;
-        setDate();
-      })
-      .catch(function() { /* keep billNo = 1 */ });
-  }
+  fetchOrdersRows().then(function(rows) {
+    allOrdersCache = rows;
+    heldBillsCache = rows.filter(function(r) {
+      var st = normalizeStatus(r.Status);
+      return st === 'held' || st === 'open';
+    });
+    setNextBillNoFromRows(rows);
+    refreshOpenBillsCount();
+  });
 }
 
 function setDate() {
@@ -860,55 +1041,176 @@ function showToast(msg, isErr) {
   setTimeout(function() { t.className = 'toast' + (isErr ? ' err' : ''); }, 3200);
 }
 
+function openHeldBillsModal() {
+  document.getElementById('heldBillsModal').classList.add('open');
+  refreshHeldBills();
+}
+
+function closeHeldBillsModal() {
+  document.getElementById('heldBillsModal').classList.remove('open');
+}
+
+document.getElementById('heldBillsModal').addEventListener('click', function(e) {
+  if (e.target && e.target.id === 'heldBillsModal') closeHeldBillsModal();
+});
+
+function refreshHeldBills() {
+  fetchOrdersRows().then(function(rows) {
+    allOrdersCache = rows;
+    heldBillsCache = rows.filter(function(r) {
+      var st = normalizeStatus(r.Status);
+      return st === 'held' || st === 'open';
+    });
+    setNextBillNoFromRows(rows);
+    refreshOpenBillsCount();
+    renderHeldBillsList();
+  });
+}
+
+function renderHeldBillsList() {
+  var q = (document.getElementById('heldSearch').value || '').toLowerCase().trim();
+  var list = heldBillsCache.filter(function(r) {
+    if (!q) return true;
+    var bill = String(r['Bill No'] || '').toLowerCase();
+    var cust = String(r.Customer || '').toLowerCase();
+    var phone = String(r.Phone || '').toLowerCase();
+    var tableNo = String(r['Table No'] || '').toLowerCase();
+    return bill.includes(q) || cust.includes(q) || phone.includes(q) || tableNo.includes(q);
+  });
+
+  var box = document.getElementById('heldBillsList');
+  if (!list.length) {
+    box.innerHTML = '<div class="hold-empty">No held/open bills found</div>';
+    return;
+  }
+
+  box.innerHTML = list.map(function(r, idx) {
+    var bill = r['Bill No'] || 'Bill';
+    var cust = r.Customer || 'Walk-in';
+    var tableNo = r['Table No'] && r['Table No'] !== '--' ? r['Table No'] : 'NA';
+    var phone = r.Phone && r.Phone !== '--' ? r.Phone : 'NA';
+    var tot = parseAmount(r.Total).toFixed(2);
+    var st = r.Status || 'Held';
+    return '<div class="hold-card">'
+      + '<div class="hold-meta">'
+      + '<div class="hold-bill">' + bill + '<span class="hold-status">' + st + '</span></div>'
+      + '<div>Customer: ' + cust + ' | Table: ' + tableNo + ' | Phone: ' + phone + '</div>'
+      + '<div>Total: ₹' + tot + '</div>'
+      + '</div>'
+      + '<button class="hold-resume" onclick="resumeHeldBill(' + idx + ')">Resume</button>'
+      + '</div>';
+  }).join('');
+}
+
+function resumeHeldBill(idx) {
+  var q = (document.getElementById('heldSearch').value || '').toLowerCase().trim();
+  var filtered = heldBillsCache.filter(function(r) {
+    if (!q) return true;
+    var bill = String(r['Bill No'] || '').toLowerCase();
+    var cust = String(r.Customer || '').toLowerCase();
+    var phone = String(r.Phone || '').toLowerCase();
+    var tableNo = String(r['Table No'] || '').toLowerCase();
+    return bill.includes(q) || cust.includes(q) || phone.includes(q) || tableNo.includes(q);
+  });
+  var row = filtered[idx];
+  if (!row) return;
+
+  var bnum = parseBillNoNum(row['Bill No'] || '');
+  if (bnum > 0) billNo = bnum;
+  currentOrderId = row['Order ID'] || makeOrderId();
+  setDate();
+  document.getElementById('billNum').textContent = row['Bill No'] || ('Bill #' + String(billNo).padStart(4, '0'));
+
+  cart = parseItemsSummary(row.Items || '');
+  document.getElementById('custInput').value = row.Customer && row.Customer !== 'Walk-in' ? row.Customer : '';
+  document.getElementById('custPhone').value = row.Phone && row.Phone !== '--' ? row.Phone : '';
+  document.getElementById('custAddress').value = row.Address && row.Address !== '--' ? row.Address : '';
+  document.getElementById('tableNo').value = row['Table No'] && row['Table No'] !== '--' ? row['Table No'] : '';
+
+  var ct = document.getElementById('custType');
+  var pm = document.getElementById('payMode');
+  for (var i = 0; i < ct.options.length; i++) if (ct.options[i].value === (row['Customer Type'] || row.customerType)) ct.selectedIndex = i;
+  for (var j = 0; j < pm.options.length; j++) if (pm.options[j].value === (row['Pay Mode'] || row.payMode)) pm.selectedIndex = j;
+
+  document.getElementById('gstRate').value = parseGstRate(row.GST || row.gst || '--');
+  var d = parseDiscount(row);
+  document.getElementById('discountType').value = d.type;
+  document.getElementById('discountVal').value = d.value;
+
+  renderBill();
+  renderProducts();
+  updateCartBar();
+  updateSummary();
+  closeHeldBillsModal();
+  if (isMobile()) switchTab('bill');
+  showToast('Resumed ' + (row['Bill No'] || 'bill'));
+}
+
 /* ── CLOSE ORDER ── */
 function closeOrder() {
+  saveOrder('Closed');
+}
+
+function holdOrder() {
+  saveOrder('Open');
+}
+
+function saveOrder(status) {
   if (!cart.length) { showToast('Add items to the bill first!', true); return; }
-  var btn = document.getElementById('closeOrderBtn');
-  var sub = cart.reduce(function(s, i) { return s + i.price * i.qty; }, 0);
-  var gst = parseFloat(document.getElementById('gstRate').value) || 0;
-  var gstAmt = sub * gst / 100;
-  var dv = parseFloat(document.getElementById('discountVal').value) || 0;
-  var dtype = document.getElementById('discountType').value;
-  var discAmt = dtype === 'pct' ? ((sub + gstAmt) * dv / 100) : Math.min(dv, sub + gstAmt);
-  var total = Math.max(0, sub + gstAmt - discAmt);
-  var itemsSummary = cart.map(function(i) { return i.name + ' x' + i.qty + ' (' + (i.price * i.qty).toFixed(2) + ')'; }).join(' | ');
+
+  var closeBtn = document.getElementById('closeOrderBtn');
+  var holdBtn = document.getElementById('holdOrderBtn');
+  var t = getTotals();
+  var itemsSummary = buildItemsSummary();
+
   var payload = {
-    action:       'saveOrder',
+    action:       'upsertOrder',
+    orderId:      currentOrderId || makeOrderId(),
     billNo:       document.getElementById('billNum').textContent,
     customer:     document.getElementById('custInput').value.trim() || 'Walk-in',
     items:        itemsSummary,
-    subtotal:     sub.toFixed(2),
-    gst:          gst > 0 ? 'GST ' + gst + '% = ' + gstAmt.toFixed(2) : '--',
-    discount:     discAmt > 0 ? discAmt.toFixed(2) : '--',
-    total:        total.toFixed(2),
-    status:       'Closed',
+    subtotal:     t.sub.toFixed(2),
+    gst:          t.gst > 0 ? 'GST ' + t.gst + '% = ' + t.gstAmt.toFixed(2) : '--',
+    discount:     t.discAmt > 0 ? t.discAmt.toFixed(2) : '--',
+    total:        t.total.toFixed(2),
+    status:       status,
     customerType: (function(){ var ct=document.getElementById('custType'); return ct ? ct.value : 'Walk-in'; })(),
     phone:        document.getElementById('custPhone') ? (document.getElementById('custPhone').value.trim() || '--') : '--',
     address:      document.getElementById('custAddress') ? (document.getElementById('custAddress').value.trim() || '--') : '--',
-    payMode:      (function(){ var pm=document.getElementById('payMode'); return pm ? pm.value : 'UPI'; })()
+    payMode:      (function(){ var pm=document.getElementById('payMode'); return pm ? pm.value : 'UPI'; })(),
+    tableNo:      document.getElementById('tableNo') ? (document.getElementById('tableNo').value.trim() || '--') : '--'
   };
+
   if (!ORDERS_URL) {
     showToast('No ORDERS_URL set!', true);
     console.log('Order payload (not sent):', payload);
     return;
   }
-  btn.classList.add('sending'); btn.textContent = 'Saving...';
-  fetch(ORDERS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+
+  closeBtn.classList.add('sending');
+  holdBtn.classList.add('sending');
+  closeBtn.textContent = 'Saving...';
+  holdBtn.textContent = 'Saving...';
+
+  fetch(ORDERS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
     .then(function() {
-      showToast('\u2713 Order ' + payload.billNo + ' saved!');
-      cart = []; billNo++; setDate();
-      renderBill(); renderProducts(); updateCartBar();
-      document.getElementById('custInput').value   = '';
-      document.getElementById('custPhone').value   = '';
-      document.getElementById('custAddress').value = '';
-      document.getElementById('custType').selectedIndex  = 0;
-      document.getElementById('payMode').selectedIndex   = 0;
-      document.getElementById('discountVal').value = '0';
-      updateSummary();
-      updateSummary();
+      var modeTxt = status === 'Closed' ? 'closed' : 'held as open';
+      showToast('✓ ' + payload.billNo + ' ' + modeTxt + '!');
+      resetCurrentBillAfterSave();
+      refreshHeldBills();
     })
     .catch(function() { showToast('Could not save. Check connection.', true); })
-    .finally(function() { btn.classList.remove('sending'); btn.innerHTML = '&#10003; Close Order'; });
+    .finally(function() {
+      closeBtn.classList.remove('sending');
+      holdBtn.classList.remove('sending');
+      closeBtn.innerHTML = '&#10003; Close';
+      holdBtn.innerHTML = '⏸ Hold';
+    });
 }
 
 /* ── CLEAR & PRINT ── */
@@ -935,6 +1237,7 @@ function buildBillText() {
   var cust     = document.getElementById('custInput').value.trim() || 'Walk-in';
   var phone    = document.getElementById('custPhone').value.trim();
   var address  = document.getElementById('custAddress').value.trim();
+  var tableNo  = document.getElementById('tableNo').value.trim();
   var ct       = document.getElementById('custType');
   var custType = ct ? ct.value : 'Walk-in';
   var pm       = document.getElementById('payMode');
@@ -952,6 +1255,7 @@ function buildBillText() {
   msg += (custType === 'Online' ? '🌐 Online Order' : '🚶 Walk-in') + '\n';
   msg += '👤 ' + cust;
   if (phone) msg += '  |  📱 +91 ' + phone;
+  if (tableNo) msg += '  |  🍽️ Table ' + tableNo;
   if (address) msg += '\n📍 ' + address;
   msg += '\n💳 Payment: *' + payMode + '*\n';
   msg += '\n━━━━━━━━━━━━━━━\n';

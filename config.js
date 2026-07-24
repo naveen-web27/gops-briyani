@@ -79,6 +79,7 @@ const BILLZO_CLIENTS = {
     sheets: {
       menuCSV:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?output=csv',
       ordersCSV: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5nrT4MebZBW-Az3Efq-hRzfQm-R8ehCKYGVqk6H4Zs6Z3u4RBlYcE52SV9tQ2yT0PtcUNdh7_UXfQ/pub?gid=553776590&single=true&output=csv',
+      inventoryCSV: '',
       scriptURL: 'https://script.google.com/macros/s/AKfycbyYP49LWQ5-sk5pHEaPIZwphe9fA2bfqeJdo4uJcLedzZ-m14pxcnxeB6inpZuBbxRxFg/exec',
     },
 
@@ -211,6 +212,7 @@ const BILLZO_CLIENTS = {
     sheets: {
       menuCSV:   '',   // paste your Google Sheet CSV URL here
       ordersCSV: '',   // paste your Orders tab CSV URL here
+      inventoryCSV: '', // paste your Inventory tab CSV URL here
       scriptURL: '',   // paste your Apps Script URL here
     },
 
