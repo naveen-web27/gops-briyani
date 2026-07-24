@@ -54,7 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 /* DESKTOP layout */
 @media(min-width:768px){
-  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:50fr 50fr;}
+  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:28fr 72fr;}
   .panel-products{display:flex!important;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
   .panel-bill{display:flex!important;flex-direction:column;overflow:hidden;}
   .mobile-tabs,.mobile-cart-bar{display:none!important;}
@@ -76,6 +76,26 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 /* Products */
 .panel-products{background:var(--dark);}
+.quick-add-wrap{padding:12px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);}
+.quick-title{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.38);font-weight:600;}
+.quick-row{display:flex;gap:8px;align-items:center;}
+.quick-search{flex:1;min-width:0;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff;padding:10px 12px;border-radius:8px;font-size:.88rem;outline:none;}
+.quick-search:focus{border-color:rgba(201,146,42,.45);}
+.quick-search::placeholder{color:rgba(255,255,255,.28);}
+.quick-qty{width:74px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#fff;padding:10px 8px;border-radius:8px;font-size:.86rem;text-align:center;outline:none;font-weight:700;}
+.quick-qty:focus{border-color:rgba(201,146,42,.45);}
+.quick-btn{background:var(--gold);border:none;color:#fff;padding:10px 12px;border-radius:8px;font-weight:700;font-size:.78rem;cursor:pointer;}
+.quick-btn:active{background:#a67520;}
+.quick-list{max-height:260px;overflow-y:auto;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.08);border-radius:9px;display:none;}
+.quick-list.show{display:block;}
+.quick-item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;}
+.quick-item:last-child{border-bottom:none;}
+.quick-item:hover,.quick-item.on{background:rgba(201,146,42,.16);}
+.quick-item .n{font-size:.84rem;color:#fff;font-weight:600;}
+.quick-item .c{font-size:.62rem;color:rgba(255,255,255,.38);margin-top:1px;}
+.quick-item .p{font-size:.84rem;color:var(--gold2);font-weight:700;white-space:nowrap;}
+.quick-hint{font-size:.68rem;color:rgba(255,255,255,.3);line-height:1.5;}
+
 .search-row{padding:10px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);flex-shrink:0;}
 .search-row input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#fff;padding:10px 14px 10px 38px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.28)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center;}
 .search-row input::placeholder{color:rgba(255,255,255,.2);}
@@ -193,6 +213,8 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   text-align:center;padding:50px 20px;color:rgba(255,255,255,.2);
 }
 .empty-state .ei{font-size:2.5rem;margin-bottom:10px;}
+
+.search-row,.cat-bar,.prod-grid{display:none!important;}
 
 /* Bill panel */
 .panel-bill{background:var(--dark2);}
@@ -440,19 +462,22 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   </div>
 
   <div class="mobile-tabs" id="mobileTabs">
-    <div class="mtab on" id="tabProducts" onclick="switchTab('products')">&#127869;&#65039; Menu</div>
-    <div class="mtab" id="tabBill" onclick="switchTab('bill')">&#129534; Bill <span class="cart-badge" id="cartBadge">0</span></div>
+    <div class="mtab" id="tabProducts" onclick="switchTab('products')">&#127919; Add Item</div>
+    <div class="mtab on" id="tabBill" onclick="switchTab('bill')">&#129534; Bill <span class="cart-badge" id="cartBadge">0</span></div>
   </div>
 
   <div class="main-area">
     <!-- Products Panel -->
     <div class="panel-products" id="panelProducts">
-      <div class="search-row">
-        <input type="text" id="searchInput" placeholder="Search dishes..." oninput="renderProducts()"/>
-      </div>
-      <div class="cat-bar" id="catBar"></div>
-      <div class="prod-grid" id="prodGrid">
-        <div class="empty-state"><div class="ei">&#9203;</div><p>Loading menu from Google Sheet...</p></div>
+      <div class="quick-add-wrap">
+        <div class="quick-title">Quick Dish Add</div>
+        <div class="quick-row">
+          <input class="quick-search" type="text" id="searchInput" placeholder="Type 2-3 letters of dish name..." oninput="renderProducts()" onkeydown="handleQuickKey(event)" autocomplete="off"/>
+          <input class="quick-qty" type="number" id="quickQty" min="1" value="1" onkeydown="handleQuickQtyKey(event)"/>
+          <button class="quick-btn" onclick="addSelectedQuickItem()">ADD</button>
+        </div>
+        <div class="quick-list" id="quickList"></div>
+        <div class="quick-hint">Use ↑ / ↓ to select dish, Enter to add, and set quantity before Enter.</div>
       </div>
       <div class="custom-form">
         <div class="custom-form-title">&#43; Add Custom Item</div>
@@ -505,7 +530,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         <input type="text" id="custAddress" placeholder="Delivery address (optional)" style="flex:1;"/>
       </div>
       <div class="line-items" id="lineItems">
-        <div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Go to Menu tab and tap dishes to add</p></div>
+        <div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Use Add Item search to add dishes quickly</p></div>
       </div>
       <div class="summary">
         <div class="sum-ctrl-row">
@@ -627,7 +652,7 @@ function lockScreen() {
 ══════════════════════════════════════════ */
 
 /* ── TABS ── */
-var currentTab = 'products';
+var currentTab = 'bill';
 function isMobile() { return window.innerWidth < 768; }
 
 function switchTab(tab) {
@@ -657,6 +682,8 @@ var allProducts = [], cart = [], activeCategory = 'All', billNo = 1;
 var allOrdersCache = [];
 var heldBillsCache = [];
 var currentOrderId = '';
+var quickResults = [];
+var quickActiveIndex = -1;
 
 function makeOrderId() {
   return 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
@@ -803,6 +830,7 @@ function boot() {
   document.getElementById('app').classList.add('open');
   beginNewBill();
   loadSheet();
+  if (isMobile()) switchTab('bill');
   fetchOrdersRows().then(function(rows) {
     allOrdersCache = rows;
     heldBillsCache = rows.filter(function(r) {
@@ -838,7 +866,9 @@ function loadSheet() {
     .then(parseCSV)
     .catch(function(e) {
       setPill('err', 'ERROR');
-      document.getElementById('prodGrid').innerHTML = '<div class="empty-state"><div class="ei">&#9888;&#65039;</div><p>Could not load sheet.<br><small>' + e.message + '</small></p></div>';
+      var quick = document.getElementById('quickList');
+      quick.classList.add('show');
+      quick.innerHTML = '<div class="hold-empty">Could not load menu. ' + e.message + '</div>';
     });
 }
 
@@ -854,7 +884,9 @@ function reloadSheet() {
     .catch(function(e) {
       setPill('err', 'ERROR');
       btn.classList.remove('spinning');
-      document.getElementById('prodGrid').innerHTML = '<div class="empty-state"><div class="ei">&#9888;&#65039;</div><p>' + e.message + '</p></div>';
+      var quick = document.getElementById('quickList');
+      quick.classList.add('show');
+      quick.innerHTML = '<div class="hold-empty">' + e.message + '</div>';
     });
 }
 
@@ -903,8 +935,10 @@ function csvSplit(line) {
 
 /* ── CATEGORIES ── */
 function buildCats() {
+  var bar = document.getElementById('catBar');
+  if (!bar) return;
   var cats = ['All'].concat([...new Set(allProducts.map(function(p) { return p.cat; }))]);
-  document.getElementById('catBar').innerHTML = cats.map(function(c) {
+  bar.innerHTML = cats.map(function(c) {
     return '<button class="cbtn ' + (c === activeCategory ? 'on' : '') + '" onclick="setCat(\'' + c + '\')">' + c + '</button>';
   }).join('');
 }
@@ -913,37 +947,105 @@ function setCat(c) { activeCategory = c; buildCats(); renderProducts(); }
 /* ── RENDER PRODUCTS ── */
 function renderProducts() {
   var q = (document.getElementById('searchInput').value || '').toLowerCase();
-  var list = allProducts.filter(function(p) {
-    return (activeCategory === 'All' || p.cat === activeCategory) &&
-           (p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q));
-  });
-  var grid = document.getElementById('prodGrid');
-  if (!list.length) {
-    grid.innerHTML = '<div class="empty-state"><div class="ei">&#128269;</div><p>No items found</p></div>';
+  if (q.length < 1) {
+    quickResults = [];
+    quickActiveIndex = -1;
+    var blankBox = document.getElementById('quickList');
+    blankBox.classList.remove('show');
+    blankBox.innerHTML = '';
     return;
   }
-  grid.innerHTML = list.map(function(p) {
-    var idx = allProducts.indexOf(p);
-    var inCart = cart.find(function(i) { return i.name === p.name; });
-    var qtyBadge = inCart ? '<div class="qty-badge">' + inCart.qty + '</div>' : '';
-    var addLabel = inCart ? '&#10003; ' + inCart.qty : '+ ADD';
-    return '<div class="pcard' + (inCart ? ' in-cart' : '') + '" onclick="addItem(' + idx + ')">'
-      + '<div class="pcard-info">'
-        + '<div class="pc">' + p.cat + '</div>'
-        + '<div class="pn">' + p.name + '</div>'
-      + '</div>'
-      + '<div class="pp">&#8377;' + p.price.toFixed(2) + '</div>'
-      + qtyBadge
-      + '<div class="add-btn">' + addLabel + '</div>'
+
+  quickResults = allProducts.filter(function(p) {
+    return p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+  }).slice(0, 12);
+
+  quickActiveIndex = quickResults.length ? Math.min(quickActiveIndex, quickResults.length - 1) : -1;
+  var box = document.getElementById('quickList');
+  if (!quickResults.length) {
+    box.classList.add('show');
+    box.innerHTML = '<div class="hold-empty">No dish found</div>';
+    return;
+  }
+
+  box.classList.add('show');
+  box.innerHTML = quickResults.map(function(p, i) {
+    return '<div class="quick-item ' + (i === quickActiveIndex ? 'on' : '') + '" onclick="pickQuick(' + i + ')">'
+      + '<div><div class="n">' + p.name + '</div><div class="c">' + p.cat + '</div></div>'
+      + '<div class="p">₹' + p.price.toFixed(2) + '</div>'
       + '</div>';
   }).join('');
 }
 
+function handleQuickKey(e) {
+  if (!quickResults.length && (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    renderProducts();
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!quickResults.length) return;
+    quickActiveIndex = (quickActiveIndex + 1) % quickResults.length;
+    renderProducts();
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!quickResults.length) return;
+    quickActiveIndex = quickActiveIndex <= 0 ? quickResults.length - 1 : quickActiveIndex - 1;
+    renderProducts();
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addSelectedQuickItem();
+  }
+}
+
+function handleQuickQtyKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addSelectedQuickItem();
+  }
+}
+
+function pickQuick(i) {
+  quickActiveIndex = i;
+  addSelectedQuickItem();
+}
+
+function addSelectedQuickItem() {
+  var qv = parseInt(document.getElementById('quickQty').value, 10);
+  var qty = isNaN(qv) || qv < 1 ? 1 : qv;
+  var searchVal = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+  if (!quickResults.length) {
+    if (!searchVal) return;
+    var exact = allProducts.find(function(p){ return p.name.toLowerCase() === searchVal; });
+    if (!exact) return;
+    addItem(allProducts.indexOf(exact), qty);
+  } else {
+    var idx = quickActiveIndex >= 0 ? quickActiveIndex : 0;
+    var sel = quickResults[idx];
+    var pi = allProducts.indexOf(sel);
+    if (pi < 0) return;
+    addItem(pi, qty);
+  }
+
+  document.getElementById('searchInput').value = '';
+  document.getElementById('quickQty').value = '1';
+  quickResults = [];
+  quickActiveIndex = -1;
+  var box = document.getElementById('quickList');
+  box.classList.remove('show');
+  box.innerHTML = '';
+  document.getElementById('searchInput').focus();
+}
+
 /* ── CART ── */
-function addItem(idx) {
+function addItem(idx, qty) {
   var p = allProducts[idx];
+  var addQty = qty || 1;
   var ex = cart.find(function(i) { return i.name === p.name; });
-  if (ex) ex.qty++; else cart.push({ name: p.name, price: p.price, cat: p.cat, qty: 1 });
+  if (ex) ex.qty += addQty; else cart.push({ name: p.name, price: p.price, cat: p.cat, qty: addQty });
   renderProducts(); renderBill(); updateCartBar();
 }
 
@@ -995,7 +1097,7 @@ function updateCartBar() {
 function renderBill() {
   var el = document.getElementById('lineItems');
   if (!cart.length) {
-    el.innerHTML = '<div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Go to Menu tab and tap dishes to add</p></div>';
+    el.innerHTML = '<div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Use Add Item search to add dishes quickly</p></div>';
     updateSummary(); return;
   }
   el.innerHTML = cart.map(function(item, i) {
