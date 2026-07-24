@@ -54,7 +54,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 
 /* DESKTOP layout */
 @media(min-width:768px){
-  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:28fr 72fr;}
+  .main-area{flex:1;overflow:hidden;display:grid;grid-template-columns:60fr 40fr;}
   .panel-products{display:flex!important;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
   .panel-bill{display:flex!important;flex-direction:column;overflow:hidden;}
   .mobile-tabs,.mobile-cart-bar{display:none!important;}
@@ -95,6 +95,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .quick-item .c{font-size:.62rem;color:rgba(255,255,255,.38);margin-top:1px;}
 .quick-item .p{font-size:.84rem;color:var(--gold2);font-weight:700;white-space:nowrap;}
 .quick-hint{font-size:.68rem;color:rgba(255,255,255,.3);line-height:1.5;}
+
+.left-line-items{flex:1;overflow-y:auto;padding:8px 12px 2px;-webkit-overflow-scrolling:touch;}
+.left-empty{padding:30px 10px;text-align:center;color:rgba(255,255,255,.25);}
 
 .search-row{padding:10px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);flex-shrink:0;}
 .search-row input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#fff;padding:10px 14px 10px 38px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.28)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center;}
@@ -215,6 +218,10 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .empty-state .ei{font-size:2.5rem;margin-bottom:10px;}
 
 .search-row,.cat-bar,.prod-grid{display:none!important;}
+
+@media(min-width:768px){
+  #lineItems{display:none!important;}
+}
 
 /* Bill panel */
 .panel-bill{background:var(--dark2);}
@@ -478,6 +485,9 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         </div>
         <div class="quick-list" id="quickList"></div>
         <div class="quick-hint">Use ↑ / ↓ to select dish, Enter to add, and set quantity before Enter.</div>
+      </div>
+      <div class="left-line-items" id="leftLineItems">
+        <div class="left-empty">Add dishes from quick search to see bill items here</div>
       </div>
       <div class="custom-form">
         <div class="custom-form-title">&#43; Add Custom Item</div>
@@ -1096,11 +1106,14 @@ function updateCartBar() {
 /* ── BILL RENDER ── */
 function renderBill() {
   var el = document.getElementById('lineItems');
+  var leftEl = document.getElementById('leftLineItems');
   if (!cart.length) {
-    el.innerHTML = '<div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Use Add Item search to add dishes quickly</p></div>';
+    var emptyHtml = '<div class="bill-empty"><div style="font-size:2.2rem;margin-bottom:10px">&#127869;&#65039;</div><p>Use Add Item search to add dishes quickly</p></div>';
+    el.innerHTML = emptyHtml;
+    if (leftEl) leftEl.innerHTML = '<div class="left-empty">Add dishes from quick search to see bill items here</div>';
     updateSummary(); return;
   }
-  el.innerHTML = cart.map(function(item, i) {
+  var itemsHtml = cart.map(function(item, i) {
     return '<div class="bli">'
       + '<div><div class="bli-name">' + item.name + '</div><div class="bli-cat">' + item.cat + ' &middot; &#8377;' + item.price.toFixed(2) + ' each</div></div>'
       + '<div class="qctrl"><button onclick="changeQty(' + i + ',-1)">&#8722;</button><span>' + item.qty + '</span><button onclick="changeQty(' + i + ',+1)">+</button></div>'
@@ -1108,6 +1121,8 @@ function renderBill() {
       + '<button class="bli-del" onclick="removeItem(' + i + ')">&#10005;</button>'
       + '</div>';
   }).join('');
+  el.innerHTML = itemsHtml;
+  if (leftEl) leftEl.innerHTML = itemsHtml;
   updateSummary();
 }
 
