@@ -77,6 +77,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 @media(max-width:620px){.cards{grid-template-columns:1fr}}
 </style>
 <script src="config.js"></script>
+<script src="auth.js"></script>
 </head>
 <body>
   <div class="top">
@@ -151,11 +152,15 @@ var SCRIPT_URL = sheets.scriptURL || '';
 var INVENTORY_CSV_URL = sheets.inventoryCSV || '';
 var rows = [];
 
-(function init(){
+BillzoAuth.configure({
+  getScriptUrl: function() { return SCRIPT_URL; }
+});
+
+function initInventory(){
   var biz = (cfg.business && cfg.business.name) ? cfg.business.name : 'Inventory';
   document.getElementById('brandName').textContent = biz + ' - Inventory';
   loadInventory();
-})();
+}
 
 function setConn(ok, msg){
   var p = document.getElementById('connPill');
@@ -199,26 +204,13 @@ function parseCSVRows(csv){
 
 function fetchByApi(){
   if (!SCRIPT_URL) return Promise.resolve([]);
-  return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
-    .then(function(r){ return r.json(); })
+  return BillzoAuth.authGet({ action: 'inventory' })
     .then(function(d){ return (d && d.rows) ? d.rows : []; });
-}
-
-function fetchByCsv(){
-  if (!INVENTORY_CSV_URL) return Promise.resolve([]);
-  var sep = INVENTORY_CSV_URL.indexOf('?') >= 0 ? '&' : '?';
-  return fetch(INVENTORY_CSV_URL + sep + 't=' + Date.now())
-    .then(function(r){ if(!r.ok) throw new Error('CSV ' + r.status); return r.text(); })
-    .then(parseCSVRows);
 }
 
 function loadInventory(){
   setConn(false, 'Loading...');
   fetchByApi()
-    .then(function(apiRows){
-      if (apiRows.length) return apiRows;
-      return fetchByCsv();
-    })
     .then(function(data){
       rows = data || [];
       buildCatFilter();
@@ -353,12 +345,7 @@ function saveItem(){
   if (!payload.itemName) { toast('Item name is required', 'err'); return; }
   if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
 
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify(payload)
-  }).then(function(){
+  BillzoAuth.authPost(payload).then(function(){
     closeModal();
     toast('Saved. Refreshing...', 'ok');
     setTimeout(loadInventory, 1200);
@@ -369,12 +356,7 @@ function saveItem(){
 
 function quickAdjust(itemId, delta){
   if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'adjustInventoryStock', itemId:itemId, delta:delta })
-  }).then(function(){
+  BillzoAuth.authPost({ action:'adjustInventoryStock', itemId:itemId, delta:delta }).then(function(){
     toast('Stock updated', 'ok');
     setTimeout(loadInventory, 900);
   }).catch(function(){
@@ -385,12 +367,7 @@ function quickAdjust(itemId, delta){
 function deleteItem(rowIndex, itemId){
   if (!confirm('Delete this item?')) return;
   if (!SCRIPT_URL) { toast('Script URL not found in config.js', 'err'); return; }
-  fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action:'deleteInventoryItem', rowIndex:rowIndex, itemId:itemId })
-  }).then(function(){
+  BillzoAuth.authPost({ action:'deleteInventoryItem', rowIndex:rowIndex, itemId:itemId }).then(function(){
     toast('Deleted', 'ok');
     setTimeout(loadInventory, 900);
   }).catch(function(){
@@ -401,6 +378,8 @@ function deleteItem(rowIndex, itemId){
 document.getElementById('mBg').addEventListener('click', function(e){
   if (e.target && e.target.id === 'mBg') closeModal();
 });
+
+BillzoAuth.guard({ onReady: initInventory });
 </script>
 </body>
 </html>
