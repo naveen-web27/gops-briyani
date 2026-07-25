@@ -504,17 +504,14 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
     <!-- Products Panel -->
     <div class="panel-products" id="panelProducts">
       <div class="quick-add-wrap">
-        <div class="quick-title">Quick Dish Add</div>
         <div class="quick-row">
           <input class="quick-search" type="text" id="searchInput" placeholder="Type 2-3 letters of dish name..." oninput="renderProducts()" onkeydown="handleQuickKey(event)" autocomplete="off"/>
           <input class="quick-qty" type="number" id="quickQty" min="1" value="1" onkeydown="handleQuickQtyKey(event)"/>
           <button class="quick-btn" onclick="addSelectedQuickItem()">ADD</button>
         </div>
         <div class="quick-list" id="quickList"></div>
-        <div class="quick-hint">Use ↑ / ↓ to select dish, Enter to add, and set quantity before Enter.</div>
       </div>
       <div class="cat-strip">
-        <div class="cat-strip-title">Dish Filters</div>
         <div class="cat-bar" id="catBar"></div>
       </div>
       <div class="left-line-items" id="leftLineItems">
