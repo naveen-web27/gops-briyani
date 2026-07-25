@@ -96,6 +96,20 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 .quick-item .p{font-size:.84rem;color:var(--gold2);font-weight:700;white-space:nowrap;}
 .quick-hint{font-size:.68rem;color:rgba(255,255,255,.3);line-height:1.5;}
 
+.cat-strip{
+  padding:10px 12px 0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.cat-strip-title{
+  font-size:.62rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.34);
+  font-weight:700;
+}
+
 .left-line-items{flex:1;overflow-y:auto;padding:8px 12px 2px;-webkit-overflow-scrolling:touch;}
 .left-empty{padding:30px 10px;text-align:center;color:rgba(255,255,255,.25);}
 
@@ -203,7 +217,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   .pcard .pc{margin-bottom:4px;}
   .pcard .pn{
     margin-bottom:auto;white-space:normal;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    display:-webkit-box;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
     font-size:.82rem;
   }
   .pcard .pp{font-size:.98rem;position:absolute;bottom:28px;left:13px;}
@@ -217,7 +231,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
 }
 .empty-state .ei{font-size:2.5rem;margin-bottom:10px;}
 
-.search-row,.cat-bar,.prod-grid{display:none!important;}
+.search-row,.prod-grid{display:none!important;}
 
 @media(min-width:768px){
   #lineItems{display:none!important;}
@@ -485,6 +499,10 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
         </div>
         <div class="quick-list" id="quickList"></div>
         <div class="quick-hint">Use ↑ / ↓ to select dish, Enter to add, and set quantity before Enter.</div>
+      </div>
+      <div class="cat-strip">
+        <div class="cat-strip-title">Dish Filters</div>
+        <div class="cat-bar" id="catBar"></div>
       </div>
       <div class="left-line-items" id="leftLineItems">
         <div class="left-empty">Add dishes from quick search to see bill items here</div>
@@ -947,7 +965,13 @@ function csvSplit(line) {
 function buildCats() {
   var bar = document.getElementById('catBar');
   if (!bar) return;
-  var cats = ['All'].concat([...new Set(allProducts.map(function(p) { return p.cat; }))]);
+  var cats = ['All'].concat([...new Set(allProducts.map(function(p) { return p.cat; }).filter(function(c) {
+    return String(c || '').trim();
+  }))]).sort(function(a, b) {
+    if (a === 'All') return -1;
+    if (b === 'All') return 1;
+    return String(a).localeCompare(String(b));
+  });
   bar.innerHTML = cats.map(function(c) {
     return '<button class="cbtn ' + (c === activeCategory ? 'on' : '') + '" onclick="setCat(\'' + c + '\')">' + c + '</button>';
   }).join('');
@@ -957,7 +981,9 @@ function setCat(c) { activeCategory = c; buildCats(); renderProducts(); }
 /* ── RENDER PRODUCTS ── */
 function renderProducts() {
   var q = (document.getElementById('searchInput').value || '').toLowerCase();
-  if (q.length < 1) {
+  var hasCategory = activeCategory && activeCategory !== 'All';
+
+  if (!q && !hasCategory) {
     quickResults = [];
     quickActiveIndex = -1;
     var blankBox = document.getElementById('quickList');
@@ -966,8 +992,16 @@ function renderProducts() {
     return;
   }
 
+  function matchesCategory(p) {
+    return !hasCategory || String(p.cat || '').toLowerCase() === String(activeCategory || '').toLowerCase();
+  }
+
+  function matchesQuery(p) {
+    return !q || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+  }
+
   quickResults = allProducts.filter(function(p) {
-    return p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q);
+    return matchesCategory(p) && matchesQuery(p);
   }).slice(0, 12);
 
   quickActiveIndex = quickResults.length ? Math.min(quickActiveIndex, quickResults.length - 1) : -1;
