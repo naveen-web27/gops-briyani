@@ -440,14 +440,13 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
   body,html{overflow:visible;height:auto;}
   #app{display:block!important;height:auto!important;}
   .main-area{display:block!important;}
-  .panel-bill{display:flex!important;width:100%;max-width:460px;margin:0 auto;background:#fff!important;}
+  .panel-bill,.panel-bill.hidden{display:flex!important;width:100%;max-width:460px;margin:0 auto;background:#fff!important;}
   .bill-hdr{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   .bill-hdr .shop-name,.bill-hdr .bm{color:#fff!important;}
   .cust-row{display:none!important;}
   .print-customer{display:block!important;padding:9px 16px 8px;background:#f7f7f7;color:#222;border-bottom:1px solid #ddd;font-size:.8rem;line-height:1.45;}
   .cat-strip{display:none!important;}
-  #lineItems{display:block!important;}
-  .line-items{overflow:visible;max-height:none;padding:10px 16px;}
+  #lineItems,.line-items{display:block!important;overflow:visible!important;max-height:none!important;padding:10px 16px;}
   .bli{border-bottom:1px dashed #ddd!important;}
   .bli-name{color:#111!important;}.bli-cat{color:#666!important;}.bli-price{color:#8b1a1a!important;}
   .qctrl span{color:#111!important;}
@@ -1418,6 +1417,14 @@ function printBill() {
   var meta = custType;
   if (custName) meta += ' | Customer: ' + custName;
   document.getElementById('printCustomerMeta').innerHTML = meta;
+
+  // Keep print items synced even if the UI is currently on the products tab.
+  renderBill();
+  var rightItems = document.getElementById('lineItems');
+  var leftItems = document.getElementById('leftLineItems');
+  if (rightItems && leftItems && !rightItems.querySelector('.bli') && leftItems.querySelector('.bli')) {
+    rightItems.innerHTML = leftItems.innerHTML;
+  }
 
   document.getElementById('panelBill').classList.remove('hidden');
   syncShop(); window.print();
