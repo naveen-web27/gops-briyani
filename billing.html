@@ -659,6 +659,7 @@ var _cfg      = window.APP_CONFIG || {};
 var _bil      = _cfg.billing  || {};
 var _sh       = _cfg.sheets   || {};
 var STAFF_PIN  = _bil.staffPin  || '1234';
+var SHEET_URL  = _sh.menuCSV   || '';
 var ORDERS_URL = _sh.scriptURL || '';
 
 BillzoAuth.configure({
@@ -951,6 +952,12 @@ function loadSheet() {
       if (!data || data.status !== 'ok') throw new Error((data && data.message) || 'Menu load failed');
       setProductsFromRows(data.rows || []);
     })
+    .catch(function() {
+      if (!SHEET_URL) throw new Error('Menu sheet not configured');
+      return fetch(SHEET_URL)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(parseCSV);
+    })
     .catch(function(e) {
       setPill('err', 'ERROR');
       var quick = document.getElementById('quickList');
@@ -970,6 +977,12 @@ function reloadSheet() {
       if (!data || data.status !== 'ok') throw new Error((data && data.message) || 'Menu load failed');
       setProductsFromRows(data.rows || []);
       btn.classList.remove('spinning');
+    })
+    .catch(function() {
+      if (!SHEET_URL) throw new Error('Menu sheet not configured');
+      return fetch(SHEET_URL)
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(function(t) { parseCSV(t); btn.classList.remove('spinning'); });
     })
     .catch(function(e) {
       setPill('err', 'ERROR');

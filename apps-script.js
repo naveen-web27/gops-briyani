@@ -35,7 +35,7 @@ var SESSION_SHEET_NAME = "Sessions";
 
 var AUTH_CLIENTS = {
   gops_briyani: {
-    password: "change-gops-password",
+    password: "gops123",
     sessionMs: 24 * 60 * 60 * 1000
   },
   bakery_demo: {
@@ -348,14 +348,35 @@ function rowsOut(sheet, expectedHeaders) {
 }
 
 function clientConfig(client) {
-  return AUTH_CLIENTS[String(client || '').trim()] || null;
+  var key = canonicalClientId(client);
+  if (!key) return null;
+
+  var direct = AUTH_CLIENTS[key];
+  if (direct) return { key: key, cfg: direct };
+
+  var authKeys = Object.keys(AUTH_CLIENTS);
+  for (var i = 0; i < authKeys.length; i++) {
+    if (canonicalClientId(authKeys[i]) === key) {
+      return { key: authKeys[i], cfg: AUTH_CLIENTS[authKeys[i]] };
+    }
+  }
+
+  return null;
+}
+
+function canonicalClientId(client) {
+  return String(client || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function loginClient(e) {
   var client = (e.parameter && e.parameter.client) || '';
   var password = (e.parameter && e.parameter.password) || '';
-  var cfg = clientConfig(client);
-  if (!cfg) return authError('Unknown client');
+  var match = clientConfig(client);
+  if (!match) return authError('Unknown client');
+  var cfg = match.cfg;
   if (!password || password !== cfg.password) return authError('Invalid password');
 
   cleanupExpiredSessions();
@@ -363,7 +384,7 @@ function loginClient(e) {
   var expiresAt = Date.now() + (cfg.sessionMs || (24 * 60 * 60 * 1000));
   var sheet = getSessionSheet();
   sheet.appendRow([
-    client,
+    match.key,
     hashToken(token),
     new Date().toISOString(),
     new Date(expiresAt).toISOString(),
@@ -389,8 +410,8 @@ function logoutClient(e) {
 
 function requireAuth(client, token) {
   if (!client || !token) return { ok: false, message: 'Login required' };
-  var cfg = clientConfig(client);
-  if (!cfg) return { ok: false, message: 'Unknown client' };
+  var match = clientConfig(client);
+  if (!match) return { ok: false, message: 'Unknown client' };
   cleanupExpiredSessions();
 
   var sheet = getSessionSheet();
@@ -398,13 +419,14 @@ function requireAuth(client, token) {
   if (lastRow < 2) return { ok: false, message: 'Session not found' };
 
   var tokenHash = hashToken(token);
+  var clientKey = match.key;
   var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
   for (var i = data.length - 1; i >= 0; i--) {
     var rowClient = String(data[i][0] || '').trim();
     var rowHash = String(data[i][1] || '').trim();
     var expires = new Date(String(data[i][3] || '')).getTime();
     var status = String(data[i][4] || '').trim().toLowerCase();
-    if (rowClient === client && rowHash === tokenHash && status === 'active' && expires > Date.now()) {
+    if (rowClient === clientKey && rowHash === tokenHash && status === 'active' && expires > Date.now()) {
       return { ok: true };
     }
   }
@@ -413,13 +435,15 @@ function requireAuth(client, token) {
 
 function revokeSession(client, token) {
   if (!client || !token) return;
+  var match = clientConfig(client);
+  if (!match) return;
   var sheet = getSessionSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
   var tokenHash = hashToken(token);
   var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
   for (var i = data.length - 1; i >= 0; i--) {
-    if (String(data[i][0] || '').trim() === client && String(data[i][1] || '').trim() === tokenHash) {
+    if (String(data[i][0] || '').trim() === match.key && String(data[i][1] || '').trim() === tokenHash) {
       sheet.getRange(i + 2, 5).setValue('revoked');
       return;
     }
