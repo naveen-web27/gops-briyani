@@ -527,7 +527,7 @@ html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;backgroun
           <button class="quick-close" type="button" onclick="closeQuickList()" title="Close search list">✕</button>
         </div>
         <div class="quick-row">
-          <input class="quick-search" type="text" id="searchInput" placeholder="Type 2-3 letters of dish name..." oninput="renderProducts()" onfocus="renderProducts()" onkeydown="handleQuickKey(event)" autocomplete="off"/>
+          <input class="quick-search" type="text" id="searchInput" placeholder="Type 2-3 letters of dish name..." oninput="renderProducts()" onclick="renderProducts()" onfocus="renderProducts()" onkeydown="handleQuickKey(event)" autocomplete="off"/>
           <input class="quick-qty" type="number" id="quickQty" min="1" value="1" onkeydown="handleQuickQtyKey(event)"/>
           <button class="quick-btn" onclick="addSelectedQuickItem()">ADD</button>
         </div>
@@ -1068,6 +1068,10 @@ function renderProducts() {
 }
 
 function handleQuickKey(e) {
+  if (e.key === 'Escape') {
+    closeQuickList();
+    return;
+  }
   if (!quickResults.length && (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
     renderProducts();
   }
@@ -1122,7 +1126,11 @@ function addSelectedQuickItem() {
 
   document.getElementById('searchInput').value = '';
   document.getElementById('quickQty').value = '1';
-  closeQuickList();
+  if (activeCategory && activeCategory !== 'All') {
+    renderProducts();
+  } else {
+    closeQuickList();
+  }
   document.getElementById('searchInput').focus();
 }
 
