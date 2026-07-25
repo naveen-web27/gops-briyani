@@ -29,7 +29,20 @@
  */
 
 var SHEET_NAME = "Orders";
+var MENU_SHEET_NAME = "Menu";
 var INVENTORY_SHEET_NAME = "Inventory";
+var SESSION_SHEET_NAME = "Sessions";
+
+var AUTH_CLIENTS = {
+  gops_briyani: {
+    password: "change-gops-password",
+    sessionMs: 24 * 60 * 60 * 1000
+  },
+  bakery_demo: {
+    password: "change-bakery-password",
+    sessionMs: 24 * 60 * 60 * 1000
+  }
+};
 
 // Must match your exact sheet columns A→O in order
 var HEADERS = [
@@ -63,39 +76,57 @@ var INVENTORY_HEADERS = [
   "Last Updated"
 ];
 
+var MENU_HEADERS = [
+  "Category",
+  "Name",
+  "Description",
+  "Price",
+  "Type",
+  "ImageURL",
+  "Badge",
+  "Available"
+];
+
+var SESSION_HEADERS = [
+  "Client",
+  "Token Hash",
+  "Created At",
+  "Expires At",
+  "Status"
+];
+
 /* ══════════════════════════════════════════
    GET — Read orders (used for bill number)
 ══════════════════════════════════════════ */
 function doGet(e) {
   try {
     var action = (e.parameter && e.parameter.action) || "";
+
+    if (action === "login") {
+      return loginClient(e);
+    }
+    if (action === "validateSession") {
+      return validateSessionRequest(e);
+    }
+    if (action === "logout") {
+      return logoutClient(e);
+    }
+
+    var auth = requireAuth((e.parameter && e.parameter.client) || "", (e.parameter && e.parameter.token) || "");
+    if (!auth.ok) return authError(auth.message);
+
+    if (action === "menu") {
+      return rowsOut(getMenuSheet(), MENU_HEADERS);
+    }
+
     var sheet  = getSheet();
 
     if (action === "orders") {
-      var data = sheet.getDataRange().getValues();
-      if (data.length < 2) return jsonOut({ status: "ok", rows: [] });
-      var headers = data[0];
-      var rows = data.slice(1).map(function(row, idx) {
-        var obj = {};
-        headers.forEach(function(h, i) { obj[String(h).trim()] = row[i] !== undefined ? row[i] : ""; });
-        obj._row = idx + 2;
-        return obj;
-      });
-      return jsonOut({ status: "ok", rows: rows });
+      return rowsOut(sheet, HEADERS);
     }
 
     if (action === "inventory") {
-      var invSheet = getInventorySheet();
-      var invData = invSheet.getDataRange().getValues();
-      if (invData.length < 2) return jsonOut({ status: "ok", rows: [] });
-      var invHeaders = invData[0];
-      var invRows = invData.slice(1).map(function(row, idx) {
-        var obj = {};
-        invHeaders.forEach(function(h, i) { obj[String(h).trim()] = row[i] !== undefined ? row[i] : ""; });
-        obj._row = idx + 2;
-        return obj;
-      });
-      return jsonOut({ status: "ok", rows: invRows });
+      return rowsOut(getInventorySheet(), INVENTORY_HEADERS);
     }
 
     return jsonOut({ status: "ok", message: "Billing API ready" });
@@ -111,6 +142,8 @@ function doGet(e) {
 function doPost(e) {
   try {
     var body  = JSON.parse(e.postData.contents);
+    var auth = requireAuth(body.client || "", body.token || "");
+    if (!auth.ok) return authError(auth.message);
     var sheet = getSheet();
 
     ensureHeaders(sheet);
@@ -118,6 +151,18 @@ function doPost(e) {
     var action = body.action || "";
     if (action === "upsertOrder") {
       return upsertOrder(sheet, body);
+    }
+    if (action === "addDish") {
+      return addDish(getMenuSheet(), body);
+    }
+    if (action === "editDish") {
+      return editDish(getMenuSheet(), body);
+    }
+    if (action === "editField") {
+      return editDishField(getMenuSheet(), body);
+    }
+    if (action === "deleteDish") {
+      return deleteDish(getMenuSheet(), body);
     }
     if (action === "saveInventoryItem") {
       return saveInventoryItem(getInventorySheet(), body);
@@ -179,6 +224,14 @@ function getSheet() {
   return sheet;
 }
 
+function getMenuSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(MENU_SHEET_NAME);
+  if (!sheet) throw new Error('Menu sheet "' + MENU_SHEET_NAME + '" not found');
+  ensureMenuHeaders(sheet);
+  return sheet;
+}
+
 function getInventorySheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(INVENTORY_SHEET_NAME);
@@ -188,6 +241,19 @@ function getInventorySheet() {
     styleInventoryHeader(sheet);
   } else {
     ensureInventoryHeaders(sheet);
+  }
+  return sheet;
+}
+
+function getSessionSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SESSION_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SESSION_SHEET_NAME);
+    sheet.appendRow(SESSION_HEADERS);
+    styleSessionHeader(sheet);
+  } else {
+    ensureSessionHeaders(sheet);
   }
   return sheet;
 }
@@ -230,6 +296,164 @@ function ensureInventoryHeaders(sheet) {
     }
   }
   if (changed) styleInventoryHeader(sheet);
+}
+
+function ensureMenuHeaders(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(MENU_HEADERS);
+    styleMenuHeader(sheet);
+    return;
+  }
+  var current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  var changed = false;
+  for (var i = 0; i < MENU_HEADERS.length; i++) {
+    if (!String(current[i] || "").trim()) {
+      sheet.getRange(1, i + 1).setValue(MENU_HEADERS[i]);
+      changed = true;
+    }
+  }
+  if (changed) styleMenuHeader(sheet);
+}
+
+function ensureSessionHeaders(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(SESSION_HEADERS);
+    styleSessionHeader(sheet);
+    return;
+  }
+  var current = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  var changed = false;
+  for (var i = 0; i < SESSION_HEADERS.length; i++) {
+    if (!String(current[i] || "").trim()) {
+      sheet.getRange(1, i + 1).setValue(SESSION_HEADERS[i]);
+      changed = true;
+    }
+  }
+  if (changed) styleSessionHeader(sheet);
+}
+
+function rowsOut(sheet, expectedHeaders) {
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return jsonOut({ status: "ok", rows: [] });
+  var headers = data[0];
+  var rows = data.slice(1).map(function(row, idx) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[String(h).trim()] = row[i] !== undefined ? row[i] : ""; });
+    obj._row = idx + 2;
+    return obj;
+  }).filter(function(row) {
+    return expectedHeaders.some(function(h) { return String(row[h] || '').trim(); });
+  });
+  return jsonOut({ status: "ok", rows: rows });
+}
+
+function clientConfig(client) {
+  return AUTH_CLIENTS[String(client || '').trim()] || null;
+}
+
+function loginClient(e) {
+  var client = (e.parameter && e.parameter.client) || '';
+  var password = (e.parameter && e.parameter.password) || '';
+  var cfg = clientConfig(client);
+  if (!cfg) return authError('Unknown client');
+  if (!password || password !== cfg.password) return authError('Invalid password');
+
+  cleanupExpiredSessions();
+  var token = Utilities.getUuid() + Utilities.getUuid();
+  var expiresAt = Date.now() + (cfg.sessionMs || (24 * 60 * 60 * 1000));
+  var sheet = getSessionSheet();
+  sheet.appendRow([
+    client,
+    hashToken(token),
+    new Date().toISOString(),
+    new Date(expiresAt).toISOString(),
+    'active'
+  ]);
+  return jsonOut({ status: 'ok', token: token, expiresAt: expiresAt });
+}
+
+function validateSessionRequest(e) {
+  var client = (e.parameter && e.parameter.client) || '';
+  var token = (e.parameter && e.parameter.token) || '';
+  var auth = requireAuth(client, token);
+  if (!auth.ok) return authError(auth.message);
+  return jsonOut({ status: 'ok', valid: true });
+}
+
+function logoutClient(e) {
+  var client = (e.parameter && e.parameter.client) || '';
+  var token = (e.parameter && e.parameter.token) || '';
+  revokeSession(client, token);
+  return jsonOut({ status: 'ok', loggedOut: true });
+}
+
+function requireAuth(client, token) {
+  if (!client || !token) return { ok: false, message: 'Login required' };
+  var cfg = clientConfig(client);
+  if (!cfg) return { ok: false, message: 'Unknown client' };
+  cleanupExpiredSessions();
+
+  var sheet = getSessionSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: false, message: 'Session not found' };
+
+  var tokenHash = hashToken(token);
+  var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
+  for (var i = data.length - 1; i >= 0; i--) {
+    var rowClient = String(data[i][0] || '').trim();
+    var rowHash = String(data[i][1] || '').trim();
+    var expires = new Date(String(data[i][3] || '')).getTime();
+    var status = String(data[i][4] || '').trim().toLowerCase();
+    if (rowClient === client && rowHash === tokenHash && status === 'active' && expires > Date.now()) {
+      return { ok: true };
+    }
+  }
+  return { ok: false, message: 'Session expired' };
+}
+
+function revokeSession(client, token) {
+  if (!client || !token) return;
+  var sheet = getSessionSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var tokenHash = hashToken(token);
+  var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (String(data[i][0] || '').trim() === client && String(data[i][1] || '').trim() === tokenHash) {
+      sheet.getRange(i + 2, 5).setValue('revoked');
+      return;
+    }
+  }
+}
+
+function cleanupExpiredSessions() {
+  var sheet = getSessionSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
+  var now = Date.now();
+  for (var i = data.length - 1; i >= 0; i--) {
+    var expires = new Date(String(data[i][3] || '')).getTime();
+    var status = String(data[i][4] || '').trim().toLowerCase();
+    if ((expires && expires <= now) || status === 'revoked') {
+      sheet.deleteRow(i + 2);
+    }
+  }
+}
+
+function hashToken(token) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(token || ''));
+  var out = [];
+  for (var i = 0; i < bytes.length; i++) {
+    var v = bytes[i];
+    if (v < 0) v += 256;
+    out.push((v < 16 ? '0' : '') + v.toString(16));
+  }
+  return out.join('');
+}
+
+function authError(message) {
+  return jsonOut({ status: 'error', code: 'AUTH_REQUIRED', message: message || 'Unauthorized' });
 }
 
 function inventoryNow() {
@@ -329,6 +553,55 @@ function adjustInventoryStock(sheet, body) {
   }
 
   return jsonOut({ status: "error", message: "Item not found" });
+}
+
+function menuRowFromBody(body) {
+  return [
+    String(body.Category || body.category || '').trim(),
+    String(body.Name || body.name || '').trim(),
+    String(body.Description || body.description || '').trim(),
+    String(body.Price || body.price || '0').trim(),
+    String(body.Type || body.type || 'Veg').trim(),
+    String(body.ImageURL || body.imageUrl || '').trim(),
+    String(body.Badge || body.badge || '').trim(),
+    String(body.Available || body.available || 'Yes').trim()
+  ];
+}
+
+function addDish(sheet, body) {
+  ensureMenuHeaders(sheet);
+  var row = menuRowFromBody(body);
+  if (!row[0] || !row[1] || !row[3]) return jsonOut({ status: 'error', message: 'Category, Name and Price are required' });
+  sheet.appendRow(row);
+  return jsonOut({ status: 'ok', mode: 'created' });
+}
+
+function editDish(sheet, body) {
+  ensureMenuHeaders(sheet);
+  var rowIndex = parseInt(body.rowIndex, 10);
+  if (isNaN(rowIndex) || rowIndex < 2) return jsonOut({ status: 'error', message: 'Valid rowIndex required' });
+  var row = menuRowFromBody(body);
+  if (!row[0] || !row[1] || !row[3]) return jsonOut({ status: 'error', message: 'Category, Name and Price are required' });
+  sheet.getRange(rowIndex, 1, 1, MENU_HEADERS.length).setValues([row]);
+  return jsonOut({ status: 'ok', mode: 'updated', rowIndex: rowIndex });
+}
+
+function editDishField(sheet, body) {
+  ensureMenuHeaders(sheet);
+  var rowIndex = parseInt(body.rowIndex, 10);
+  var field = String(body.field || '').trim();
+  var colIndex = MENU_HEADERS.indexOf(field) + 1;
+  if (isNaN(rowIndex) || rowIndex < 2 || !colIndex) return jsonOut({ status: 'error', message: 'Valid rowIndex and field required' });
+  sheet.getRange(rowIndex, colIndex).setValue(body.value === undefined ? '' : body.value);
+  return jsonOut({ status: 'ok', rowIndex: rowIndex, field: field });
+}
+
+function deleteDish(sheet, body) {
+  ensureMenuHeaders(sheet);
+  var rowIndex = parseInt(body.rowIndex, 10);
+  if (isNaN(rowIndex) || rowIndex < 2) return jsonOut({ status: 'error', message: 'Valid rowIndex required' });
+  sheet.deleteRow(rowIndex);
+  return jsonOut({ status: 'ok', rowIndex: rowIndex });
 }
 
 function upsertOrder(sheet, body) {
@@ -436,6 +709,30 @@ function styleInventoryHeader(sheet) {
   sheet.setFrozenRows(1);
 
   [130, 220, 140, 90, 90, 90, 100, 180, 90, 160]
+    .forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
+}
+
+function styleMenuHeader(sheet) {
+  sheet.getRange(1, 1, 1, MENU_HEADERS.length)
+    .setBackground('#180900')
+    .setFontColor('#c9922a')
+    .setFontWeight('bold')
+    .setFontSize(10);
+  sheet.setFrozenRows(1);
+
+  [140, 220, 260, 90, 90, 220, 110, 90]
+    .forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
+}
+
+function styleSessionHeader(sheet) {
+  sheet.getRange(1, 1, 1, SESSION_HEADERS.length)
+    .setBackground('#180900')
+    .setFontColor('#c9922a')
+    .setFontWeight('bold')
+    .setFontSize(10);
+  sheet.setFrozenRows(1);
+
+  [140, 330, 180, 180, 100]
     .forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
 }
 

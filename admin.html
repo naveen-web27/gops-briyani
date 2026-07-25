@@ -256,6 +256,7 @@ table tr:last-child td{border-bottom:none}
 </style>
 <!-- Billzo config — load before any scripts so theme & vars are ready -->
 <script src="config.js"></script>
+<script src="auth.js"></script>
 </head>
 <body>
 
@@ -752,6 +753,10 @@ const MENU_CSV_URL   = (_cfg.sheets && _cfg.sheets.menuCSV)    || '';
 const ORDERS_CSV_URL = (_cfg.sheets && _cfg.sheets.ordersCSV)  || '';
 const INVENTORY_CSV_URL = (_cfg.sheets && _cfg.sheets.inventoryCSV) || '';
 
+BillzoAuth.configure({
+  getScriptUrl: function() { return SCRIPT_URL; }
+});
+
 /* Apply business name from config */
 (function() {
   var biz = _cfg.business || {};
@@ -800,7 +805,7 @@ function pinPress(d){
   }
 }
 function pinDel(){ if(pinBuf.length){ pinBuf=pinBuf.slice(0,-1); for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('filled',i<pinBuf.length); } }
-function lockAdmin(){ pinBuf=''; document.getElementById('pin-screen').style.display=''; document.getElementById('admin').classList.remove('open'); for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.remove('filled'); }
+function lockAdmin(){ BillzoAuth.logout(); }
 function changePin(){
   const np = document.getElementById('new-pin').value.trim();
   if(!/^\d{4}$/.test(np)){ toast('PIN must be exactly 4 digits','err'); return; }
@@ -882,12 +887,7 @@ function csvSplit(line){
 
 /* ══ WRITE: Apps Script POST no-cors (same as billing.html) ══ */
 function apiPost(payload){
-  return fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify(payload)
-  });
+  return BillzoAuth.authPost(payload);
 }
 
 function refreshAll(){
@@ -905,8 +905,8 @@ function refreshAll(){
    MENU LOAD & RENDER
 ═══════════════════════════════════════════════ */
 function loadMenu(){
-  return fetchCSV(MENU_CSV_URL).then(function(rows){
-    allMenu = rows;
+  return BillzoAuth.authGet({ action: 'menu' }).then(function(data){
+    allMenu = (data && data.rows) ? data.rows : [];
     buildMenuCatFilter();
     updateCatSuggestions();
     renderMenuTable();
@@ -1103,8 +1103,8 @@ function toDateStr(ts){
 }
 
 function loadOrders(){
-  return fetchCSV(ORDERS_CSV_URL).then(function(rows){
-    allOrders = rows;
+  return BillzoAuth.authGet({ action: 'orders' }).then(function(data){
+    allOrders = (data && data.rows) ? data.rows : [];
     renderOrdersTable();
     renderDashOrders();
     updateDashOrderStats();
@@ -1236,34 +1236,6 @@ function toNum(v){
 }
 
 function loadInventory(){
-  if (INVENTORY_CSV_URL) {
-    return fetchCSV(INVENTORY_CSV_URL).then(function(rows){
-      allInventory = rows;
-      buildInventoryFilters();
-      renderInventoryTable();
-    }).catch(function(){
-      // fallback to API read if CSV is not configured/published
-      if (!SCRIPT_URL) {
-        allInventory = [];
-        buildInventoryFilters();
-        renderInventoryTable();
-        return;
-      }
-      return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-          allInventory = (d && d.rows) ? d.rows : [];
-          buildInventoryFilters();
-          renderInventoryTable();
-        })
-        .catch(function(){
-          allInventory = [];
-          buildInventoryFilters();
-          renderInventoryTable();
-        });
-    });
-  }
-
   if (!SCRIPT_URL) {
     allInventory = [];
     buildInventoryFilters();
@@ -1271,8 +1243,7 @@ function loadInventory(){
     return Promise.resolve();
   }
 
-  return fetch(SCRIPT_URL + '?action=inventory&t=' + Date.now())
-    .then(function(r){ return r.json(); })
+  return BillzoAuth.authGet({ action: 'inventory' })
     .then(function(d){
       allInventory = (d && d.rows) ? d.rows : [];
       buildInventoryFilters();
@@ -1531,6 +1502,18 @@ document.addEventListener('keydown',e=>{
   if(e.key>='0'&&e.key<='9') pinPress(e.key);
   if(e.key==='Backspace') pinDel();
 });
+
+function startAdminApp(){
+  document.getElementById('pin-screen').style.display='none';
+  document.getElementById('admin').classList.add('open');
+  document.getElementById('script-url-input').value = SCRIPT_URL;
+  document.getElementById('settings-url').value = SCRIPT_URL;
+  document.getElementById('dash-date').textContent = 'Today — ' + new Date().toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  initDates();
+  refreshAll();
+}
+
+BillzoAuth.guard({ onReady: startAdminApp });
 </script>
 </body>
 </html>

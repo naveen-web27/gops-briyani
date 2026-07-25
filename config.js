@@ -341,6 +341,7 @@ if (!window.APP_CONFIG) {
   console.warn('[Billzo] Client "' + ACTIVE_CLIENT + '" not found. Falling back to: ' + _fbKeys[0]);
   window.APP_CONFIG = BILLZO_CLIENTS[_fbKeys[0]];
 }
+window.APP_CONFIG.clientId = ACTIVE_CLIENT;
 
 /* ═══ Auto-apply CSS theme variables ═══
    This runs immediately in <head> before the page renders,
