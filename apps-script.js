@@ -1,48 +1,52 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- *  BILLING — Google Apps Script
+ *  BILLING — Google Apps Script  (multi-client edition)
  *
- *  EXACT SHEET COLUMN ORDER (A → O):
- *  A: Timestamp
- *  B: Bill No
- *  C: Customer
- *  D: Items
- *  E: Subtotal
- *  F: GST
- *  G: Discount
- *  H: Total
- *  I: Status
- *  J: Customer Type   ← new
- *  K: Phone           ← new
- *  L: Address         ← new
- *  M: Pay Mode
- *  N: Order ID        ← used for hold/resume updates
- *  O: Table No        ← optional table number
+ *  MASTER SPREADSHEET  (where this script is deployed)
+ *  ├─ Config   — client registry (Client ID | Sheet ID | Password | ...)
+ *  └─ Sessions — auth tokens
+ *
+ *  CLIENT SPREADSHEET  (one per client, ID stored in Config sheet)
+ *  ├─ Orders
+ *  ├─ Menu
+ *  └─ Inventory
+ *
+ *  CONFIG SHEET COLUMNS (A → E):
+ *  A: Client ID     e.g. gops_briyani
+ *  B: Sheet ID      Google Sheet ID of the client's own spreadsheet
+ *  C: Password      login password for this client
+ *  D: Session MS    session duration in ms  (default: 86400000 = 24 h)
+ *  E: Status        active | inactive
+ *
+ *  ORDERS SHEET COLUMNS (A → O) — inside each CLIENT spreadsheet:
+ *  A: Timestamp  B: Bill No  C: Customer  D: Items
+ *  E: Subtotal   F: GST      G: Discount  H: Total
+ *  I: Status     J: Customer Type         K: Phone
+ *  L: Address    M: Pay Mode N: Order ID  O: Table No
  *
  *  SETUP:
- *  1. Extensions → Apps Script → Paste this → Save (Ctrl+S)
- *  2. Deploy → New Deployment
+ *  1. Create a master Google Sheet (this is your admin hub).
+ *  2. Extensions → Apps Script → paste this file → Save.
+ *  3. Deploy → New Deployment
  *       Type: Web App | Execute as: Me | Who can access: Anyone
- *  3. Copy the Web App URL
- *  4. Paste into billing.html → var ORDERS_URL = "..."
+ *  4. Copy the Web App URL → paste into every client's config.js  scriptURL.
+ *  5. Open the master sheet, go to the Config tab (auto-created on first run).
+ *     Add one row per client:
+ *       gops_briyani | <Sheet ID of gops spreadsheet> | gops123 | 86400000 | active
+ *  6. Each client's spreadsheet needs Orders / Menu / Inventory tabs
+ *     (auto-created on first write if missing).
  * ═══════════════════════════════════════════════════════════════
  */
 
-var SHEET_NAME = "Orders";
-var MENU_SHEET_NAME = "Menu";
+var SHEET_NAME           = "Orders";
+var MENU_SHEET_NAME      = "Menu";
 var INVENTORY_SHEET_NAME = "Inventory";
-var SESSION_SHEET_NAME = "Sessions";
+var SESSION_SHEET_NAME   = "Sessions";
+var CONFIG_SHEET_NAME    = "Config";
 
-var AUTH_CLIENTS = {
-  gops_briyani: {
-    password: "gops123",
-    sessionMs: 24 * 60 * 60 * 1000
-  },
-  bakery_demo: {
-    password: "change-bakery-password",
-    sessionMs: 24 * 60 * 60 * 1000
-  }
-};
+// Config sheet lives in the MASTER spreadsheet (where this script runs).
+// Columns: Client ID | Sheet ID | Password | Session MS | Status
+var CONFIG_HEADERS = ["Client ID", "Sheet ID", "Password", "Session MS", "Status"];
 
 // Must match your exact sheet columns A→O in order
 var HEADERS = [
@@ -96,38 +100,26 @@ var SESSION_HEADERS = [
 ];
 
 /* ══════════════════════════════════════════
-   GET — Read orders (used for bill number)
+   GET
 ══════════════════════════════════════════ */
 function doGet(e) {
   try {
-    var action = (e.parameter && e.parameter.action) || "";
+    var action   = (e.parameter && e.parameter.action) || "";
+    var clientId = (e.parameter && e.parameter.client) || "";
+    var token    = (e.parameter && e.parameter.token)  || "";
 
-    if (action === "login") {
-      return loginClient(e);
-    }
-    if (action === "validateSession") {
-      return validateSessionRequest(e);
-    }
-    if (action === "logout") {
-      return logoutClient(e);
-    }
+    if (action === "login")           return loginClient(e);
+    if (action === "validateSession") return validateSessionRequest(e);
+    if (action === "logout")          return logoutClient(e);
 
-    var auth = requireAuth((e.parameter && e.parameter.client) || "", (e.parameter && e.parameter.token) || "");
+    var auth = requireAuth(clientId, token);
     if (!auth.ok) return authError(auth.message);
 
-    if (action === "menu") {
-      return rowsOut(getMenuSheet(), MENU_HEADERS);
-    }
+    var clientSS = getClientSpreadsheet(auth.match);
 
-    var sheet  = getSheet();
-
-    if (action === "orders") {
-      return rowsOut(sheet, HEADERS);
-    }
-
-    if (action === "inventory") {
-      return rowsOut(getInventorySheet(), INVENTORY_HEADERS);
-    }
+    if (action === "menu")      return rowsOut(getMenuSheet(clientSS),      MENU_HEADERS);
+    if (action === "orders")    return rowsOut(getSheet(clientSS),          HEADERS);
+    if (action === "inventory") return rowsOut(getInventorySheet(clientSS), INVENTORY_HEADERS);
 
     return jsonOut({ status: "ok", message: "Billing API ready" });
 
@@ -137,42 +129,27 @@ function doGet(e) {
 }
 
 /* ══════════════════════════════════════════
-   POST — Save one bill row to sheet
+   POST
 ══════════════════════════════════════════ */
 function doPost(e) {
   try {
-    var body  = JSON.parse(e.postData.contents);
+    var body = JSON.parse(e.postData.contents);
     var auth = requireAuth(body.client || "", body.token || "");
     if (!auth.ok) return authError(auth.message);
-    var sheet = getSheet();
 
+    var clientSS = getClientSpreadsheet(auth.match);
+    var sheet    = getSheet(clientSS);
     ensureHeaders(sheet);
 
     var action = body.action || "";
-    if (action === "upsertOrder") {
-      return upsertOrder(sheet, body);
-    }
-    if (action === "addDish") {
-      return addDish(getMenuSheet(), body);
-    }
-    if (action === "editDish") {
-      return editDish(getMenuSheet(), body);
-    }
-    if (action === "editField") {
-      return editDishField(getMenuSheet(), body);
-    }
-    if (action === "deleteDish") {
-      return deleteDish(getMenuSheet(), body);
-    }
-    if (action === "saveInventoryItem") {
-      return saveInventoryItem(getInventorySheet(), body);
-    }
-    if (action === "deleteInventoryItem") {
-      return deleteInventoryItem(getInventorySheet(), body);
-    }
-    if (action === "adjustInventoryStock") {
-      return adjustInventoryStock(getInventorySheet(), body);
-    }
+    if (action === "upsertOrder")          return upsertOrder(sheet, body);
+    if (action === "addDish")              return addDish(getMenuSheet(clientSS), body);
+    if (action === "editDish")             return editDish(getMenuSheet(clientSS), body);
+    if (action === "editField")            return editDishField(getMenuSheet(clientSS), body);
+    if (action === "deleteDish")           return deleteDish(getMenuSheet(clientSS), body);
+    if (action === "saveInventoryItem")    return saveInventoryItem(getInventorySheet(clientSS), body);
+    if (action === "deleteInventoryItem")  return deleteInventoryItem(getInventorySheet(clientSS), body);
+    if (action === "adjustInventoryStock") return adjustInventoryStock(getInventorySheet(clientSS), body);
 
     var now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
 
@@ -208,11 +185,22 @@ function doPost(e) {
 }
 
 /* ══════════════════════════════════════════
-   HELPERS
+   SHEET HELPERS
 ══════════════════════════════════════════ */
 
-function getSheet() {
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+// Opens the client's own spreadsheet using the Sheet ID from the Config sheet.
+function getClientSpreadsheet(match) {
+  var sheetId = match.cfg.sheetId;
+  if (!sheetId) throw new Error('No Sheet ID configured for client: ' + match.key + '. Add it to the Config sheet.');
+  try {
+    return SpreadsheetApp.openById(sheetId);
+  } catch(e) {
+    throw new Error('Cannot open spreadsheet for client ' + match.key + ' (ID: ' + sheetId + '). Check the Config sheet.');
+  }
+}
+
+// ss = the client's spreadsheet (returned by getClientSpreadsheet)
+function getSheet(ss) {
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
@@ -224,16 +212,14 @@ function getSheet() {
   return sheet;
 }
 
-function getMenuSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function getMenuSheet(ss) {
   var sheet = ss.getSheetByName(MENU_SHEET_NAME);
-  if (!sheet) throw new Error('Menu sheet "' + MENU_SHEET_NAME + '" not found');
+  if (!sheet) throw new Error('Menu sheet "' + MENU_SHEET_NAME + '" not found in client spreadsheet.');
   ensureMenuHeaders(sheet);
   return sheet;
 }
 
-function getInventorySheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function getInventorySheet(ss) {
   var sheet = ss.getSheetByName(INVENTORY_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(INVENTORY_SHEET_NAME);
@@ -245,8 +231,9 @@ function getInventorySheet() {
   return sheet;
 }
 
+// Sessions & Config always live in the MASTER spreadsheet.
 function getSessionSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SESSION_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(SESSION_SHEET_NAME);
@@ -254,6 +241,17 @@ function getSessionSheet() {
     styleSessionHeader(sheet);
   } else {
     ensureSessionHeaders(sheet);
+  }
+  return sheet;
+}
+
+function getConfigSheet() {
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONFIG_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG_SHEET_NAME);
+    sheet.appendRow(CONFIG_HEADERS);
+    styleConfigHeader(sheet);
   }
   return sheet;
 }
@@ -347,20 +345,30 @@ function rowsOut(sheet, expectedHeaders) {
   return jsonOut({ status: "ok", rows: rows });
 }
 
+// Reads client credentials and Sheet ID from the Config sheet.
 function clientConfig(client) {
   var key = canonicalClientId(client);
   if (!key) return null;
 
-  var direct = AUTH_CLIENTS[key];
-  if (direct) return { key: key, cfg: direct };
+  var sheet   = getConfigSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
 
-  var authKeys = Object.keys(AUTH_CLIENTS);
-  for (var i = 0; i < authKeys.length; i++) {
-    if (canonicalClientId(authKeys[i]) === key) {
-      return { key: authKeys[i], cfg: AUTH_CLIENTS[authKeys[i]] };
+  var data = sheet.getRange(2, 1, lastRow - 1, CONFIG_HEADERS.length).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var rowKey    = canonicalClientId(String(data[i][0] || ''));
+    var rowStatus = String(data[i][4] || 'active').toLowerCase();
+    if (rowKey === key && rowStatus !== 'inactive') {
+      return {
+        key: rowKey,
+        cfg: {
+          sheetId:   String(data[i][1] || '').trim(),
+          password:  String(data[i][2] || '').trim(),
+          sessionMs: parseInt(data[i][3], 10) || (24 * 60 * 60 * 1000)
+        }
+      };
     }
   }
-
   return null;
 }
 
@@ -408,13 +416,14 @@ function logoutClient(e) {
   return jsonOut({ status: 'ok', loggedOut: true });
 }
 
+// Returns { ok, match } on success so callers can open the client spreadsheet.
 function requireAuth(client, token) {
   if (!client || !token) return { ok: false, message: 'Login required' };
   var match = clientConfig(client);
   if (!match) return { ok: false, message: 'Unknown client' };
   cleanupExpiredSessions();
 
-  var sheet = getSessionSheet();
+  var sheet   = getSessionSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { ok: false, message: 'Session not found' };
 
@@ -423,11 +432,11 @@ function requireAuth(client, token) {
   var data = sheet.getRange(2, 1, lastRow - 1, SESSION_HEADERS.length).getValues();
   for (var i = data.length - 1; i >= 0; i--) {
     var rowClient = String(data[i][0] || '').trim();
-    var rowHash = String(data[i][1] || '').trim();
-    var expires = new Date(String(data[i][3] || '')).getTime();
-    var status = String(data[i][4] || '').trim().toLowerCase();
-    if (rowClient === clientKey && rowHash === tokenHash && status === 'active' && expires > Date.now()) {
-      return { ok: true };
+    var rowHash   = String(data[i][1] || '').trim();
+    var expires   = new Date(String(data[i][3] || '')).getTime();
+    var rowStatus = String(data[i][4] || '').trim().toLowerCase();
+    if (rowClient === clientKey && rowHash === tokenHash && rowStatus === 'active' && expires > Date.now()) {
+      return { ok: true, match: match };  // ← match included so caller can open client SS
     }
   }
   return { ok: false, message: 'Session expired' };
@@ -760,6 +769,19 @@ function styleSessionHeader(sheet) {
     .forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
 }
 
+function styleConfigHeader(sheet) {
+  sheet.getRange(1, 1, 1, CONFIG_HEADERS.length)
+    .setBackground('#180900')
+    .setFontColor('#c9922a')
+    .setFontWeight('bold')
+    .setFontSize(10);
+  sheet.setFrozenRows(1);
+
+  // Client ID | Sheet ID | Password | Session MS | Status
+  [160, 380, 160, 120, 100]
+    .forEach(function(w, i) { sheet.setColumnWidth(i + 1, w); });
+}
+
 function jsonOut(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
@@ -768,57 +790,44 @@ function jsonOut(data) {
 
 /* ══════════════════════════════════════════
    TEST — run these in Apps Script editor
-   to verify data saves correctly
 ══════════════════════════════════════════ */
 
-function test_saveWalkIn() {
-  var result = doPost({ postData: { contents: JSON.stringify({
-    action:       "upsertOrder",
-    billNo:       "Bill #0001",
-    customer:     "Kavitha",
-    items:        "Health Mix x2 (360.00) | ABC Malt x1 (200.00)",
-    subtotal:     "560.00",
-    gst:          "GST 5% = 28.00",
-    discount:     "--",
-    total:        "588.00",
-    status:       "Closed",
-    customerType: "Walk-in",
-    phone:        "9876543210",
-    address:      "--",
-    payMode:      "Cash",
-    orderId:      "ORD-TEST-1",
-    tableNo:      "T1"
-  })}});
-  Logger.log("Walk-in test:", result.getContent());
+// Run this ONCE after deploying to create the Config sheet with example rows.
+function test_setupConfig() {
+  var sheet = getConfigSheet();
+  if (sheet.getLastRow() < 2) {
+    // Client ID | Sheet ID | Password | Session MS | Status
+    sheet.appendRow(['gops_briyani', 'PASTE_SHEET_ID_HERE', 'gops123',         86400000, 'active']);
+    sheet.appendRow(['bakery_demo',  'PASTE_SHEET_ID_HERE', 'bakery-password',  86400000, 'active']);
+    Logger.log('Config sheet populated. Replace the Sheet IDs with real values.');
+  } else {
+    Logger.log('Config sheet already has data:', sheet.getLastRow() - 1, 'client(s)');
+  }
 }
 
-function test_saveOnline() {
-  var result = doPost({ postData: { contents: JSON.stringify({
-    action:       "upsertOrder",
-    billNo:       "Bill #0002",
-    customer:     "Meena S.",
-    items:        "Rose Face Pack x1 (170.00)",
-    subtotal:     "170.00",
-    gst:          "--",
-    discount:     "--",
-    total:        "170.00",
-    status:       "Closed",
-    customerType: "Online",
-    phone:        "9123456780",
-    address:      "12, Anna Nagar, Erode",
-    payMode:      "UPI",
-    orderId:      "ORD-TEST-2",
-    tableNo:      "--"
-  })}});
-  Logger.log("Online test:", result.getContent());
+// Run this to verify clientConfig() reads the Config sheet correctly.
+function test_clientConfig() {
+  var match = clientConfig('gops_briyani');
+  if (!match) { Logger.log('ERROR: gops_briyani not found in Config sheet.'); return; }
+  Logger.log('Client key:', match.key);
+  Logger.log('Sheet ID:', match.cfg.sheetId);
+  Logger.log('Session MS:', match.cfg.sessionMs);
 }
 
-function test_getOrders() {
-  var result = doGet({ parameter: { action: "orders" } });
+// Run this to verify the script can open a client's spreadsheet.
+function test_openClientSheet() {
+  var match = clientConfig('gops_briyani');
+  if (!match) { Logger.log('ERROR: client not found'); return; }
+  var ss = getClientSpreadsheet(match);
+  Logger.log('Opened:', ss.getName(), '| Sheets:', ss.getSheets().map(function(s){ return s.getName(); }).join(', '));
+}
+
+// Run this to verify login works end-to-end (replace password to match Config sheet).
+function test_login() {
+  var result = doGet({ parameter: { action: 'login', client: 'gops_briyani', password: 'gops123' } });
   var data   = JSON.parse(result.getContent());
-  Logger.log("Total rows:", data.rows.length);
-  if (data.rows.length) {
-    var last = data.rows[data.rows.length - 1];
-    Logger.log("Last row — Customer:", last["Customer"], "| Phone:", last["Phone"], "| Pay Mode:", last["Pay Mode"]);
+  Logger.log('Login result:', JSON.stringify(data));
+  if (data.status === 'ok') {
+    Logger.log('Token (first 16 chars):', data.token.slice(0, 16) + '...');
   }
 }
